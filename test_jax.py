@@ -25,12 +25,16 @@ def pow2(x):
 
 def pow2_vjp(x):
     # correct for x scalar or (n,), use this in production code
-    return pow2(x), lambda g: (2*g*x,)
+    return pow2(x), lambda g: (g * 2*x,)
 
 
 @jax.custom_transforms
 def mysin(x):
     return np.sin(x)
+
+@jax.custom_transforms
+def mysum(x):
+    return np.sum(x)
 
 def pow2_vjp_with_jac(x):
     """ VJP where we really build the intermediate Jacobian. Not
@@ -39,27 +43,30 @@ def pow2_vjp_with_jac(x):
     # called from elementwise_grad(func)(x) with x 1d array
     if x.shape != ():
         # The same:
-        #    jac = jacobian(lambda x: np.power(x,2))(x)
-        jac = np.diag(2*x)
+        #   jac = np.diag(2*x)
+        jac = jacobian(lambda x: np.power(x,2))(x)
         return pow2(x), lambda g: (np.dot(g, jac),)
     # called from grad(func)(x) with x scalar
     else:
-        return pow2(x), lambda g: (2*g*x,)
+        return pow2(x), lambda g: (g * 2*x,)
 
 def mysin_vjp(x):
     return np.sin(x), lambda g: (g * np.cos(x),)
 
+def mysum_vjp(x):
+    return np.sum(x), lambda g: (g,)
 
 def func(x):
     return np.sum(np.power(np.sin(x),2))
 
 def func_with_vjp(x):
-    return np.sum(pow2(mysin(x)))
+    return mysum(pow2(mysin(x)))
 
 
+jax.defvjp_all(mysin, mysin_vjp)
+jax.defvjp_all(mysum, mysum_vjp)
 for p_jvp in [pow2_vjp, pow2_vjp_with_jac]:
     jax.defvjp_all(pow2, p_jvp)
-    jax.defvjp_all(mysin, mysin_vjp)
 
 
     assert np.allclose([func(xi)          for xi in x],
