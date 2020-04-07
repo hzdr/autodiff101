@@ -1,3 +1,14 @@
-*.swp
-__pycache__
+*.aux
 *.bak
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+##*.pdf
+*.swp
+*.swp
+*.toc
+__pycache__
+_minted-*
