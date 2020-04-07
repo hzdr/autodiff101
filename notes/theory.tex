@@ -12,17 +12,19 @@
 \newcommand{\ve}[1]{\ensuremath{\bm{\mathit{#1}}}}
 \newcommand{\ma}[1]{\ensuremath{\bm{\mathbf{#1}}}}
 \newcommand{\dd}{\text{d}}
-\newcommand{\ra}{\rightarrow}
-\newcommand{\la}{\leftarrow}
+\newcommand{\ra}{\ensuremath{\rightarrow}}
+\newcommand{\la}{\ensuremath{\leftarrow}}
 \newcommand{\pd}[2]{\dfrac{\partial #1}{\partial #2}}
 \newcommand{\td}[2]{\dfrac{\dd #1}{\dd #2}}
+\newcommand{\pdi}[2]{\partial #1/\partial #2}
+\newcommand{\tdi}[2]{\dd #1/\dd #2}
 \newcommand{\red}[1]{{\color{red}{#1}}}
 \newcommand{\green}[1]{{\color{green}{#1}}}
 \newcommand{\blue}[1]{{\color{blue}{#1}}}
 
 \begin{document}
 
-Methods for diff:
+\section*{Methods for diff}
 
 \begin{itemize}
     \item work out derivs by hand and code them
@@ -51,130 +53,208 @@ Methods for diff:
     \end{itemize}
 \end{itemize}
 %
+\section*{Some basics}
 First consider a scalar function of scalar inputs $f:\mathbb R\ra\mathbb R$
-\begin{equation}
+\begin{equation*}
     f(x) = c(b(a(x)))
-\end{equation}
-\begin{minted}{python}
-    f = lambda x: c(b(a(x)))
-    f = lambda x: sum(pow2(sin(x)))
-\end{minted}
+\end{equation*}
 which gives the straight graph $x\ra a\ra b\ra c = f$. Forward = $x \ra c$ (inputs
 to outputs). Reverse = $x \la c$ (outputs to inputs).
 The derivative using the chain rule
-    \begin{align*}
-        \td{f}{x}
-            &= \td{c}{b}\,\td{b}{a}\,\td{a}{x}\\
-            &= \td{c}{b}\,\left(\td{b}{a}\,\td{a}{x}\right)\quad\text{forward}\\
-            &= \left(\td{c}{b}\,\td{b}{a}\right)\,\td{a}{x}\quad\text{reverse}\\
-    \end{align*}
+\begin{align*}
+    \td{f}{x}
+        &= \td{c}{b}\,\td{b}{a}\,\td{a}{x}\\
+        &= \td{c}{b}\,\left(\td{b}{a}\,\td{a}{x}\right)\quad\text{forward}\\
+        &= \left(\td{c}{b}\,\td{b}{a}\right)\,\td{a}{x}\quad\text{reverse}\\
+\end{align*}
+
+Now let's look at a multivariate function $f(\ve x): \mathbb R^n \ra \mathbb R$.
+\begin{equation*}
+    f(\ve x) = c(b(a(\ve x)))
+\end{equation*}
+The gradient using the chain rule is
+\begin{equation*}
+    \pd{f}{\ve x} = \pd{c}{b}\,\pd{b}{a}\,\pd{a}{\ve x}
+\end{equation*}
+We can now pick out the $i$-th derivative $\pdi{f}{x_i}$ by multiplication with
+a vector
+$\ve e_i = [0,0,\ldots,1,\ldots, 0]$ which we can write as $\pdi{\ve x}{x_i}$.
+\begin{align*}
+    \pd{f}{\ve x}\,\pd{\ve x}{x_i} = \pd{f}{x_i}
+        &= \pd{c}{b}\,\pd{b}{a}\,\pd{a}{\ve x}\pd{\ve x}{x_i}\\
+        &= \pd{c}{b}\,\pd{b}{a}\,\pd{a}{x_i}
+\end{align*}
+We will generalize this below.
+
+\section*{Forward and reverse AD (in JAX)}
 Now we consider a multivariate vector function $\ve f: \mathbb R^n \ra \mathbb R^m$.
 The Jacobian is
-$$\ve f(\ve x): \mathbb R^n \ra \mathbb R^m\quad \ma J =
-\begin{pmatrix}
-\pd{f_1}{x_1} & \cdots & \pd{f_1}{x_n}  \\
-\vdots        & \ddots & \vdots         \\
-\pd{f_m}{x_1} & \cdots & \pd{f_m}{x_n}
-\end{pmatrix}
-\in\mathbb R^{m\times n}
-$$
+\begin{equation*}
+    \ve f(\ve x): \mathbb R^n \ra \mathbb R^m\quad \ma J =
+        \begin{pmatrix}
+            \pd{f_1}{x_1} & \cdots & \pd{f_1}{x_n}  \\
+            \vdots        & \ddots & \vdots         \\
+            \pd{f_m}{x_1} & \cdots & \pd{f_m}{x_n}
+        \end{pmatrix}
+    \in\mathbb R^{m\times n}
+\end{equation*}
 One edge case is
-$$\ve f(x): \mathbb R^1 \ra \mathbb R^m\quad \ma J =
-\begin{pmatrix}
-\pd{f_1}{x_1}  \\
-\vdots         \\
-\pd{f_m}{x_1}
-\end{pmatrix}
-\in\mathbb R^{m\times 1}
-$$
-where we need only the first column $\ma J[:,1]$.
-In the other edge case
-$$f(\ve x): \mathbb R^n \ra \mathbb R^1\quad \ma J =
-\begin{pmatrix}
-\pd{f_1}{x_1} & \cdots & \pd{f_1}{x_n}
-\end{pmatrix}
-\in\mathbb R^{1\times n}
-\equiv \nabla f\equiv \pd{f}{\ve x}
-$$
+\begin{equation*}
+    \ve f(x): \mathbb R^1 \ra \mathbb R^m\quad \ma J =
+        \begin{pmatrix}
+            \pd{f_1}{x_1}  \\
+            \vdots         \\
+            \pd{f_m}{x_1}
+        \end{pmatrix}
+    \in\mathbb R^{m\times 1}
+\end{equation*}
+where we need only the first column $\ma J[:,1]$. In the other edge case
+\begin{equation*}
+f(\ve x): \mathbb R^n \ra \mathbb R^1\quad \ma J =
+    \begin{pmatrix}
+        \pd{f_1}{x_1} & \cdots & \pd{f_1}{x_n}
+    \end{pmatrix}
+    \in\mathbb R^{1\times n}
+    \equiv \nabla f\equiv \pd{f}{\ve x}
+\end{equation*}
 we need the first row $\ma J[1,:]$ only.
-Again we have
-$$\ve f(\ve x) = \ve c(\ve b(\ve a(\ve x)))$$
-and can use the chain rule
-$$\ma J=\pd{\ve f}{\ve x} = \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}$$
-which gives a series of matrix multiplications of individual Jacobians $\pd{\ve
-a}{\ve x}$, $\pd{\ve b}{\ve a}$, $\pd{\ve c}{\ve b}$.
 
-Forward: extract $j$-th column $\ma J[:,j]$ by multiplying from the right with
-a one-hot vector $\partial\ve x/\partial x_j = \ve e_j = [0,0,\cdots,1,\cdots,
-0]$ to select the $x_j$ w.r.t. to which we want to calculate the derivative.
-Apply \blue{Jacobian vector products (JVPs)} as we go.
-Apply all possible $\ve e_j$ to build up full $\ma J$, one column at a time.
-For the edge case $\ve f(x): \mathbb R^1 \ra \mathbb R^m$ we are finished in one
-forward pass.
-    \begin{align*}
+\subsection{Forward}
+
+Again we have
+\begin{equation*}
+    \ve f(\ve x) = \ve c(\ve b(\ve a(\ve x)))
+\end{equation*}
+and can use the chain rule
+\begin{equation*}
+    \ma J=\pd{\ve f}{\ve x} = \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}
+\end{equation*}
+which would give a series of matrix multiplications of individual Jacobians $\pdi{\ve
+a}{\ve x}$, $\pdi{\ve b}{\ve a}$, $\pdi{\ve c}{\ve b}$. Of course we don't want
+to build up Jacobians. Also we haven't done any AD yet, have we?
+The trick is to evaluate the expression by using ($i$) pre-defined derivatives of
+\emph{primitive} functions and ($ii$) the $\ve e_i$ trick from above.
+
+We can extract the $j$-th column $\ma J[:,j]$ by multiplying from the right
+with $\partial\ve x/\partial x_j = \ve e_j = [0,0,\cdots,1,\cdots, 0]$ to
+select the $x_j$ w.r.t. to which we want to calculate the derivative. We apply
+\blue{Jacobian vector products (JVPs)} as we go.
+\begin{align*}
     \pd{\ve f}{\ve x}\,\red{\pd{\ve x}{x_j}}
         &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\,\red{\pd{\ve x}{x_j}}\\
         &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\,\red{\ve e_j}\\
         &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\blue{\pd{\ve a}{\ve x}\,\ve e_j} \\
-        &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\blue{\ve e_j'} \\
-        &= \pd{\ve c}{\ve b}\,\ve e_j'' \\
-        &= \ma J[:,j] \\
-    \end{align*}
-Reverse: First, do a forward pass to trace execution and build up the graph
+        &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\blue{\ve v_j} \\
+        &= \pd{\ve c}{\ve b}\,\ve v_j' \\
+        &= \ma J[:,j]
+\end{align*}
+Now what is a JVP? We see that in order to evaluate the chain rule,
+each \emph{primitive} function ($\ve a(\cdot)$, $\ve b(\cdot)$, $\ve c(\cdot)$)
+formally needs to know ($i$) how to evaluate it's own derivative (Jacobian, e.g.
+$\pdi{\ve b}{\ve a}$) w.r.t. it's inputs and ($ii$) how to multiply that with a given vector.
+By doing ($ii$), we can always initialize the process by $\ve e_j$ and then
+multiply forward. Cool! Now how do we do $(i)$? There is a function \texttt{jax.jvp}
+\begin{equation*}
+    \texttt{vjp}: (\ve x, \ve v) \ra \left(\ve f(\ve x), \ma J(\ve x)\,\ve v\right)
+\end{equation*}
+which maps a pair of so-called \emph{primal} \ve x and \emph{tangent} \ve v to the value
+of \ve f and the JVP. The primal \ve x is the point at which \ve f and \ma J are
+to be evaluated, the tangent \ve v is the vector used in the JVP. This is very
+roughly how JAX works inside. Each primitive (numpy) function has an associated
+function defined by using \texttt{jax.devjvp} which gets called when evaluating
+the chain rule. \textbf{The most important trick is that the intermediate Jacobians are
+never explicitly build}. The JVP function only has to return a value
+which is the \emph{result} of $\ma J(\ve x)\,\ve v$. Especially, for numpy's
+vectorized functions, all Jacobians are diagonal (!), which makes coding up what
+the JVP function has to do simple and efficient.
+
+When we repeat the process and apply all possible $\ve e_j$, we can build up the
+full $\ma J$ if we need to, one column at a time. For the edge case $\ve f(x): \mathbb R^1
+\ra \mathbb R^m$ (first column) we are finished in one forward pass. In general
+forward mode is efficient for "tall" Jacobians where $m\gg n$.
+
+\subsection{Reverse}
+
+First, we do a forward pass to trace the execution done in $\ve f$ to build up the graph
 $\ve x\ra \ve a\ra \ve b\ra \ve c = \ve f$.
-Extract $i$-th row $\ma J[i,:]$ by multiplying from the left with a
-one-hot vector $\ve e_i$. Apply \blue{vector Jacobian products (VJPs)} as we go.
-Apply all possible $\ve e_i$ to build up full $\ma J$, one row at a time.
-For the edge case $f(\ve x): \mathbb R^n \ra \mathbb R^1$ we
-are done in one backward pass.
-    \begin{align*}
-    \red{\pd{\ve x}{x_i}}\,\pd{\ve f}{\ve x}
-        &= \red{\pd{\ve x}{x_i}}\,\pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
-        &= \red{\ve e_i}\,\pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
-        &= \blue{\ve e_i\,\pd{\ve c}{\ve b}}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
+Then we can extract $i$-th row $\ma J[i,:]$ by multiplying from the left with
+$\ve e_i$. This time, we apply \blue{vector Jacobian products (VJPs)} as we go.
+\begin{align*}
+    \red{\left(\pd{\ve x}{x_i}\right)^\top}\,\pd{\ve f}{\ve x}
+        &= \red{\left(\pd{\ve x}{x_i}\right)^\top}\,\pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
+        &= \red{\ve e_i^\top}\,\pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
+        &= \blue{\ve e_i^\top\,\pd{\ve c}{\ve b}}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
         &= \ldots\\
         &= \ma J[i,:]
-    \end{align*}
-Note that this the same as right-multiplying the transpose of $\ma J$
-$$\ve e_i\,\ma J = \ma J^\top\,\ve e_i$$
-i.e. use JVPs on $\ma J^\top$.
+\end{align*}
+Again, we can apply all possible $\ve e_i$ to build up full $\ma J$, this time one row at
+a time. For the edge case $f(\ve x): \mathbb R^n \ra \mathbb R^1$ (first row)
+we are done in one backward pass.
+
+Note that
+\begin{equation*}
+    \ve e_i^\top\,\ma J = \ma J^\top\,\ve e_i
+\end{equation*}
+i.e. use JVPs on $\ma J^\top$. This is how JAX does it, as far as I can tell.
+In contrast to autograd, in JAX
+they never define VJPs but instead only JVPs and use the transpose trick
+to evaluate the reverse mode.
+
+\subsection{Reverse in ML a.k.a. backprop}
 
 Typical in ML: a multivariate function $f(\ve x): \mathbb R^n\ra \mathbb R$
-where $n$ is "large" (as in $10^5$) and
-that is composed of a number of vector-valued functions $\ve a(\ve z), \ve
-b(\ve z): \mathbb R^p\ra \mathbb R^q$ and a final contraction $c(\ve z): \mathbb R^r\ra \mathbb R$.
+\begin{equation*}
+    f(\ve x) = c(\ve b(\ve a(\ve x)))
+\end{equation*}
+for instance
+\begin{minted}{python}
+    f = lambda x: c(b(a(x)))
+    f = lambda x: sum(power(sin(x),2))
+\end{minted}
+that is composed of a number of vector-valued functions $\ve a(\cdot), \ve
+b(\cdot)$ and a final contraction $c(\cdot): \mathbb R^n\ra \mathbb R$ and where $n$ is "large" (as in $10^5$).
 For example, $f$ is the loss function in NN training and $\ve x$ are the
-network's parameters.
+network's parameters. This is exactly the second edge case from above. When
+using reverse mode, we get the gradient $\pdi{f}{\ve x} = \ma J[1,:]$
+in a single reverse pass (i.e. backprop).
 
-$$f(\ve x) = c(\ve b(\ve a(\ve x)))$$
+\section*{Comparison of diff implementations}
 
 % XXX vmap(grad) is not really grad!
-\begin{table}
-\begin{tabular}{lllll}
-\toprule
-what                  & scipy                        & numdifftools     & jax                      & autograd               \\
-\midrule
-$\dd f(x)/\dd x$      & \verb|M.gradient|            & \verb|Derivative|&   \verb|grad|            & \verb|grad|            \\
-$\nabla f(\ve x)$     & \verb|O.approx_fprime|       & \verb|Gradient|  &   ???\verb|vmap(grad(.))|   & ????\verb|elementwise_grad|\\
-$\dd\ve f/\dd\ve x$   & \verb|N.approx_derivative|   & \verb|Jacobian|  &   \verb|jacobian|        & \verb|jacobian|        \\
-\bottomrule
-\end{tabular}
-    \caption{scipy: \texttt{M=scipy.misc}, \texttt{O=scipy.optimize}, \texttt{N=optimize.\_numdiff}}
+\begin{table}[h]
+    \begin{tabular}{lllll}
+        \toprule
+        what                  & scipy                        & numdifftools     & jax                      & autograd               \\
+        \midrule
+        $\dd f(x)/\dd x$      & \verb|M.gradient|            & \verb|Derivative|&   \verb|grad|            & \verb|grad|            \\
+        $\nabla f(\ve x)$     & \verb|O.approx_fprime|       & \verb|Gradient|  &   ???\verb|vmap(grad(.))|   & ????\verb|elementwise_grad|\\
+        $\dd\ve f/\dd\ve x$   & \verb|N.approx_derivative|   & \verb|Jacobian|  &   \verb|jacobian|        & \verb|jacobian|        \\
+        \bottomrule
+    \end{tabular}
+    \caption{scipy: \texttt{M=scipy.misc}, \texttt{O=scipy.optimize}, \texttt{N=optimize.\char`_numdiff}}
 \end{table}
 
-%%\section*{Syntax}
-%%
-%%JAX (and mostly also autograd)
-%%
-%%math                        |   code
-%%-|-
-%%$\td{f}{x}$                 | `grad(f)`
-%%$\pd{f(\ve x)}{x_i}$        | `grad(f, argnums=i)`
-%%$\nabla f = \left[\pd{f}{x_0}\cdots\pd{f}{x_{n-1}}\right]$ | `jnp.array(grad(f, argnums=tuple(range(n)))`
-%%fake $\nabla f$ (e.g. `f=np.sin`)| `vmap(grad(f))`
-%%$\ma J$                     | `jacobian(f)`, `jacfwd(f)`, `jacrev(f)`
+\section*{Syntax}
 
-\section*{JVPs (forward) and VJPs (reverse)}
+JAX (and mostly also autograd)
+
+% XXX not sure about argnums and df/dx_i, there is a diff between f(x) with x
+% \in R^n and explicit f(x_1, x_2)
+\begin{table}[h]
+    \begin{tabular}{ll}
+        \toprule
+        math                                    &   code \\
+        \midrule
+        $\td{f}{x}$                             & \texttt{grad(f)}            \\
+        ???$\pd{f(\ve x)}{x_i}$                    & \texttt{grad(f, argnums=i)} \\
+        ??? fake $\nabla f$ (e.g. \texttt{f=np.sin})   & \texttt{vmap(grad(f))} \\
+        $\ma J$                                 & \texttt{jacobian(f)}, \texttt{jacfwd(f)}, \texttt{jacrev(f)} \\
+        \bottomrule
+    \end{tabular}
+    \caption{Syntax}
+\end{table}
+
+\section*{JVPs (forward) and VJPs (reverse) in autograd an JAX}
 
 Autograd
 
@@ -191,9 +271,9 @@ Autograd
 JAX
 
 \begin{itemize}
-    \item numpy primitives defined in
-        \url{https://github.com/google/jax/blob/master/jax/lax/lax.py} using
-        only defjvp, i.e. only forward
+    \item numpy primitives defined (re-implemented using the LAX linalg layer) in
+        \url{https://github.com/google/jax/blob/master/jax/lax/lax.py};
+        a lot of \texttt{defjvp*}, one for each primitive, i.e. only forward
     \item numpy API def
         \url{https://github.com/google/jax/blob/master/jax/numpy/lax_numpy.py}
     \item they don't define explicit VJPs (for reverse mode), instead they use
@@ -207,7 +287,7 @@ Refs:
     \item \url{https://insidehpc.com/2017/12/deep-learning-automatic-differentiation-theano-pytorch}
     \item \url{https://arxiv.org/abs/1502.05767}
     \item \url{http://www.autodiff.org}
-    \item Talk by Matthew Johnson (former HIPS, now Goolge, JAX) about
+    \item Talk by Matthew Johnson (former HIPS, now Google, JAX) about
         \url{https://github.com/HIPS/autograd}:
         \url{http://videolectures.net/deeplearning2017_johnson_automatic_differentiation}
 \end{itemize}
