@@ -8,6 +8,7 @@
 \usepackage{booktabs}
 \usepackage{url}
 \usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black,hyperfootnotes=true]{hyperref}
+\usepackage{cancel}
 
 \newcommand{\ve}[1]{\ensuremath{\bm{\mathit{#1}}}}
 \newcommand{\ma}[1]{\ensuremath{\bm{\mathbf{#1}}}}
@@ -21,10 +22,13 @@
 \newcommand{\red}[1]{{\color{red}{#1}}}
 \newcommand{\green}[1]{{\color{green}{#1}}}
 \newcommand{\blue}[1]{{\color{blue}{#1}}}
+\newcommand{\ts}[1]{\textsuperscript{#1}}
 
 \begin{document}
 
-\section*{Methods for diff}
+\section{Methods to evaluate derivatives}
+%
+Taken (mostly) from \cite{baydin_2018}.
 
 \begin{itemize}
     \item work out derivs by hand and code them
@@ -35,9 +39,9 @@
             `tf.cond`), the framework then does symbolic derivs and thus
             creates a new computation graph for derivs which is used in SGD
     \end{itemize}
-\item numerical derivs by FD (use at least central diffs, `numdifftools`), good
-    for checking AD gradients, scales as $\mathcal O(n)$ for $\nabla f(\ve x),
-    \ve x\in\mathbb R^n$, slow when $n\sim 10^6$
+\item numerical derivs by FD (use at least central diffs,
+    \textsl{numdifftools}), good for checking AD gradients, scales as $\mathcal
+    O(n)$ for $\nabla f(\ve x), \ve x\in\mathbb R^n$, slow when $n\sim 10^6$
 \item AD
     \begin{itemize}
         \item directly provides numerical values for gradients at some point
@@ -50,10 +54,21 @@
         \item no "code swell" (complex expressions that grow which each
             application of $\partial/\partial x_i$ as in symbolic engines)
             which need an additional simplification step (Theano does this)
+        \item limitations
+        \begin{itemize}
+            \item in-place ops such as \texttt{A[i,j] *= 3} instead of
+                \texttt{B=A*3} are hard to support and can slow things down b/c
+                large parts of the comp graph must be rewritten instead of just
+                adding a new variable; in \textsl{autograd} they aren't even
+                supported at all; \textsl{jax} and \textsl{pytorch} have a jit,
+                which should optimize out-of-place modifications and copies
+                away
+        \end{itemize}
     \end{itemize}
 \end{itemize}
 %
-\section*{Some basics}
+\section{Setting the stage}
+%
 First consider a scalar function of scalar inputs $f:\mathbb R\ra\mathbb R$
 \begin{equation*}
     f(x) = c(b(a(x)))
@@ -68,25 +83,8 @@ The derivative using the chain rule
         &= \left(\td{c}{b}\,\td{b}{a}\right)\,\td{a}{x}\quad\text{reverse}\\
 \end{align*}
 
-Now let's look at a multivariate function $f(\ve x): \mathbb R^n \ra \mathbb R$.
-\begin{equation*}
-    f(\ve x) = c(b(a(\ve x)))
-\end{equation*}
-The gradient using the chain rule is
-\begin{equation*}
-    \pd{f}{\ve x} = \pd{c}{b}\,\pd{b}{a}\,\pd{a}{\ve x}
-\end{equation*}
-We can now pick out the $i$-th derivative $\pdi{f}{x_i}$ by multiplication with
-a vector
-$\ve e_i = [0,0,\ldots,1,\ldots, 0]$ which we can write as $\pdi{\ve x}{x_i}$.
-\begin{align*}
-    \pd{f}{\ve x}\,\pd{\ve x}{x_i} = \pd{f}{x_i}
-        &= \pd{c}{b}\,\pd{b}{a}\,\pd{a}{\ve x}\pd{\ve x}{x_i}\\
-        &= \pd{c}{b}\,\pd{b}{a}\,\pd{a}{x_i}
-\end{align*}
-We will generalize this below.
-
-\section*{Forward and reverse AD (in JAX)}
+\section{Forward and reverse AD (in \textsl{jax})}
+%
 Now we consider a multivariate vector function $\ve f: \mathbb R^n \ra \mathbb R^m$.
 The Jacobian is
 \begin{equation*}
@@ -119,6 +117,15 @@ f(\ve x): \mathbb R^n \ra \mathbb R^1\quad \ma J =
 \end{equation*}
 we need the first row $\ma J[1,:]$ only.
 
+\subsection{Vectorized numpy functions}
+
+Vectorized \textsl{numpy} functions are a bit of a special case, since
+depending on input, they are either $f(x):\mathbb R\ra\mathbb R$ or $\ve f(\ve
+x):\mathbb R^n\ra\mathbb R^n$, but never $f(\ve x): \mathbb R^n \ra \mathbb R$
+(i.e. the gradient $\nabla f(\ve x)$ is not defined for them). Therefore, their
+Jacobian for a given \ve x is always diagonal, which is a very neat property
+that we'll use later.
+
 \subsection{Forward}
 
 Again we have
@@ -130,75 +137,140 @@ and can use the chain rule
     \ma J=\pd{\ve f}{\ve x} = \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}
 \end{equation*}
 which would give a series of matrix multiplications of individual Jacobians $\pdi{\ve
-a}{\ve x}$, $\pdi{\ve b}{\ve a}$, $\pdi{\ve c}{\ve b}$. Of course we don't want
-to build up Jacobians. Also we haven't done any AD yet, have we?
-The trick is to evaluate the expression by using ($i$) pre-defined derivatives of
-\emph{primitive} functions and ($ii$) the $\ve e_i$ trick from above.
-
-We can extract the $j$-th column $\ma J[:,j]$ by multiplying from the right
-with $\partial\ve x/\partial x_j = \ve e_j = [0,0,\cdots,1,\cdots, 0]$ to
-select the $x_j$ w.r.t. to which we want to calculate the derivative. We apply
-\blue{Jacobian vector products (JVPs)} as we go.
+a}{\ve x}$, $\pdi{\ve b}{\ve a}$, $\pdi{\ve c}{\ve b}$.
+Note that we can right-multiply $\ma J$ with the identity
+matrix $\pdi{\ve x}{\ve x}$
+\begin{equation*}
+    \pd{\ve f}{\ve x}\,\pd{\ve x}{\ve x} =
+    \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\,\pd{\ve x}{\ve x}
+\end{equation*}
+which doesn't change anything. We can also think of this as extracting the
+$j$-th column $\ma J[:,j]$ by multiplying from the right with one column of the
+identity $\partial\ve x/\partial x_j = \ve e_j = [0,0,\cdots,1,\cdots, 0]$.
+This will thus select the $x_j$ w.r.t. to which we want to calculate the
+derivative. Analytically this means for an example $2\times 2$ system and choosing
+$x_j = x_1$
+\begin{equation*}
+    \pd{\ve f}{\ve x}\,\pd{\ve x}{x_j}=
+    \begin{pmatrix}
+        \pd{f_1}{x_1} & \pd{f_1}{x_2} \\
+        \pd{f_2}{x_1} & \pd{f_2}{x_2} \\
+    \end{pmatrix}
+    \begin{pmatrix}
+        \pd{x_1}{x_1} \\
+        \pd{x_2}{x_1} \\
+    \end{pmatrix}
+    =
+    \begin{pmatrix}
+        \pd{f_1}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_1}{x_2}\,\pd{x_2}{x_1}} \\
+        \pd{f_2}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_2}{x_2}\,\pd{x_2}{x_1}} \\
+    \end{pmatrix}
+    =
+    \begin{pmatrix}
+        \pd{f_1}{x_1} \\
+        \pd{f_2}{x_1} \\
+    \end{pmatrix}
+\end{equation*}
+if we note that $\pdi{x_2}{x_1}=0$ and that formally by the chain rule
+\begin{gather*}
+    \pd{f_1}{x_1}\,\pd{x_1}{x_1} = \pd{f_1}{x_1} \\
+    \pd{f_2}{x_1}\,\pd{x_1}{x_1} = \pd{f_2}{x_1} \\
+\end{gather*}
+Now, of course we don't want to build up Jacobians. Also we haven't done any AD
+yet, have we? The trick is to evaluate the expression by using ($i$)
+pre-defined derivatives of \emph{primitive} functions and ($ii$) by repeated
+application of a \blue{\emph{Jacobian vector product (JVP)}}. So, we initialize
+with $\ve e_j$ and apply JVPs as we go.
 \begin{align*}
-    \pd{\ve f}{\ve x}\,\red{\pd{\ve x}{x_j}}
-        &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\,\red{\pd{\ve x}{x_j}}\\
-        &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\,\red{\ve e_j}\\
+    \pd{\ve f}{\ve x}\,\pd{\ve x}{x_j}
         &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\blue{\pd{\ve a}{\ve x}\,\ve e_j} \\
-        &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\blue{\ve v_j} \\
-        &= \pd{\ve c}{\ve b}\,\ve v_j' \\
+        &= \pd{\ve c}{\ve b}\,\blue{\pd{\ve b}{\ve a}\,\ve v_j} \\
+        &= \blue{\pd{\ve c}{\ve b}\,\ve v_j'} \\
         &= \ma J[:,j]
 \end{align*}
-Now what is a JVP? We see that in order to evaluate the chain rule,
-each \emph{primitive} function ($\ve a(\cdot)$, $\ve b(\cdot)$, $\ve c(\cdot)$)
-formally needs to know ($i$) how to evaluate it's own derivative (Jacobian, e.g.
-$\pdi{\ve b}{\ve a}$) w.r.t. it's inputs and ($ii$) how to multiply that with a given vector.
-By doing ($ii$), we can always initialize the process by $\ve e_j$ and then
-multiply forward. Cool! Now how do we do $(i)$? There is a function \texttt{jax.jvp}
+Now what is a JVP? We see that in order to evaluate the chain rule, each
+\emph{primitive} function ($\ve a(\cdot)$, $\ve b(\cdot)$, $\ve c(\cdot)$)
+needs to know ($i$) how it would evaluate its own derivative (Jacobian, e.g.
+$\pdi{\ve b}{\ve a}$) w.r.t. its inputs and ($ii$) how to multiply that with a
+given vector. By doing ($ii$), we can always initialize the process by $\ve
+e_j$ and then multiply forward. Cool! Now how do we do $(i)$? The answer is
+that we don't (almost). There is a function \texttt{jax.jvp} that, for a given
+primitive function $\ve a(\ve x)$, maps a so-called
+\emph{primal}-\emph{tangent} pair $(\ve x, \ve v)$
 \begin{equation*}
-    \texttt{vjp}: (\ve x, \ve v) \ra \left(\ve f(\ve x), \ma J(\ve x)\,\ve v\right)
+    \texttt{vjp}: (\ve x, \ve v) \ra \left(\ve a(\ve x), \ma J(\ve x)\,\ve v\right)
 \end{equation*}
-which maps a pair of so-called \emph{primal} \ve x and \emph{tangent} \ve v to the value
-of \ve f and the JVP. The primal \ve x is the point at which \ve f and \ma J are
-to be evaluated, the tangent \ve v is the vector used in the JVP. This is very
-roughly how JAX works inside. Each primitive (numpy) function has an associated
+to the function at $\ve x$ and its JVP with $\ve v$. This is very roughly how
+\textsl{jax} works inside. Each primitive (numpy) function has an associated
 function defined by using \texttt{jax.devjvp} which gets called when evaluating
-the chain rule. \textbf{The most important trick is that the intermediate Jacobians are
-never explicitly build}. The JVP function only has to return a value
-which is the \emph{result} of $\ma J(\ve x)\,\ve v$. Especially, for numpy's
-vectorized functions, all Jacobians are diagonal (!), which makes coding up what
-the JVP function has to do simple and efficient.
+the chain rule. \textbf{The most important trick is that the intermediate
+Jacobians are never explicitly build}. The JVP function only has to return the
+\emph{result} of $\ma J(\ve x)\,\ve v$. Especially, for numpy's vectorized
+functions, all Jacobians are diagonal, which makes evaluating the result of $\ma J(\ve x)\,\ve v$
+simple and efficient. In most cases, we get away with element-wise operations
+on \ve v.
 
-When we repeat the process and apply all possible $\ve e_j$, we can build up the
-full $\ma J$ if we need to, one column at a time. For the edge case $\ve f(x): \mathbb R^1
-\ra \mathbb R^m$ (first column) we are finished in one forward pass. In general
-forward mode is efficient for "tall" Jacobians where $m\gg n$.
+When we repeat the process and apply all possible $\ve e_j$ (i.e. the whole
+identity matrix), we can build up the full $\ma J$ if we need to, one column at
+a time. For the edge case $\ve f(x): \mathbb R \ra \mathbb R^m$ (first column)
+we are finished in one forward pass. In general forward mode is efficient for
+"tall" Jacobians where $m\gg n$ and inefficient for "wide" ones where $m\ll n$.
+The other edge case $f(\ve x): \mathbb R^n \ra \mathbb R$ (first row a.k.a.
+$\nabla f(\ve x)$) is inefficient in forward mode since we need $n$ passes to
+calculate each $\pdi{f}{x_j}$. This has thus similar complexity as finite
+differences, where we also do something like $(f(\ve x +\ve e_j\,h) - f(\ve
+x-\ve e_j h))/2\,h$ $n$ times.
 
 \subsection{Reverse}
 
-First, we do a forward pass to trace the execution done in $\ve f$ to build up the graph
-$\ve x\ra \ve a\ra \ve b\ra \ve c = \ve f$.
-Then we can extract $i$-th row $\ma J[i,:]$ by multiplying from the left with
-$\ve e_i$. This time, we apply \blue{vector Jacobian products (VJPs)} as we go.
+First, we do a forward pass to trace the execution done in $\ve f$ to build up
+the graph $\ve x\ra \ve a\ra \ve b\ra \ve c = \ve f$. Then we can extract
+$i$-th row $\ma J[i,:]$ by multiplying from the left with $\pdi{\ve f}{f_i} =
+\ve e_i$. Analytically, we have
+\begin{equation*}
+    \begin{split}
+    \left(\pd{\ve f}{f_i}\right)^\top\,\pd{\ve f}{\ve x}
+    =
+    \begin{pmatrix}
+        \pd{f_1}{f_1} & \pd{f_2}{f_1} \\
+    \end{pmatrix}
+    \begin{pmatrix}
+        \pd{f_1}{x_1} & \pd{f_1}{x_2} \\
+        \pd{f_2}{x_1} & \pd{f_2}{x_2} \\
+    \end{pmatrix}
+    =
+    \begin{pmatrix}
+        \pd{f_1}{f_1}\,\pd{f_1}{x_1} + \cancelto{0}{\pd{f_2}{f_1}\,\pd{f_2}{x_1}} &
+        \pd{f_1}{f_1}\,\pd{f_1}{x_2} + \cancelto{0}{\pd{f_2}{f_1}\,\pd{f_2}{x_2}}
+    \end{pmatrix}
+    =\\
+    \begin{pmatrix}
+        \pd{f_1}{x_1} & \pd{f_1}{x_2}
+    \end{pmatrix}
+    \end{split}
+\end{equation*}
+with $\pdi{f_2}{f_1}=0$.
+In the code, we initialize with $\ve e_i$ and this time apply
+\blue{\emph{vector Jacobian products (VJPs)}} as we go.
 \begin{align*}
-    \red{\left(\pd{\ve x}{x_i}\right)^\top}\,\pd{\ve f}{\ve x}
-        &= \red{\left(\pd{\ve x}{x_i}\right)^\top}\,\pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
-        &= \red{\ve e_i^\top}\,\pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
+    \left(\pd{\ve f}{f_i}\right)^\top\,\pd{\ve f}{\ve x}
         &= \blue{\ve e_i^\top\,\pd{\ve c}{\ve b}}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
-        &= \ldots\\
+        &= \blue{\ve v_i^\top\,\pd{\ve b}{\ve a}}\,\pd{\ve a}{\ve x}\\
+        &= \blue{\ve v_i'^\top\,\pd{\ve a}{\ve x}}\\
         &= \ma J[i,:]
 \end{align*}
-Again, we can apply all possible $\ve e_i$ to build up full $\ma J$, this time one row at
-a time. For the edge case $f(\ve x): \mathbb R^n \ra \mathbb R^1$ (first row)
-we are done in one backward pass.
+Again, we can apply all possible $\ve e_i$ to build up full $\ma J$, this time
+one row at a time. For the edge case $f(\ve x): \mathbb R^n \ra \mathbb R^1$
+(first row) we are done in one backward pass.
 
 Note that
 \begin{equation*}
     \ve e_i^\top\,\ma J = \ma J^\top\,\ve e_i
 \end{equation*}
-i.e. use JVPs on $\ma J^\top$. This is how JAX does it, as far as I can tell.
-In contrast to autograd, in JAX
-they never define VJPs but instead only JVPs and use the transpose trick
-to evaluate the reverse mode.
+i.e. use JVPs on $\ma J^\top$. This is how \textsl{jax} does it, as far as I
+can tell. In contrast to \textsl{autograd}, in \textsl{jax} they never define
+VJPs but instead only JVPs and use the transpose trick to evaluate the reverse
+mode.
 
 \subsection{Reverse in ML a.k.a. backprop}
 
@@ -211,64 +283,46 @@ for instance
     f = lambda x: c(b(a(x)))
     f = lambda x: sum(power(sin(x),2))
 \end{minted}
-that is composed of a number of vector-valued functions $\ve a(\cdot), \ve
-b(\cdot)$ and a final contraction $c(\cdot): \mathbb R^n\ra \mathbb R$ and where $n$ is "large" (as in $10^5$).
-For example, $f$ is the loss function in NN training and $\ve x$ are the
-network's parameters. This is exactly the second edge case from above. When
-using reverse mode, we get the gradient $\pdi{f}{\ve x} = \ma J[1,:]$
-in a single reverse pass (i.e. backprop).
+i.e. the composition of a number of vector-valued functions $\ve a(\cdot), \ve
+b(\cdot)$ and a final reduction $c(\cdot): \mathbb R^n\ra \mathbb R$ and where
+$n$ is "large" (as in $10^5$). For example, $f$ is the loss function in NN
+training and $\ve x$ are the network's parameters. This is exactly the second
+edge case from above. When using reverse mode, we get the gradient $\pdi{f}{\ve
+x} = \ma J[1,:]$ in a single reverse pass (i.e. backprop).
 
-\section*{Comparison of diff implementations}
+\section{Comparison of diff implementations}
 
-% XXX vmap(grad) is not really grad!
 \begin{table}[h]
     \begin{tabular}{lllll}
         \toprule
-        what                  & scipy                        & numdifftools     & jax                      & autograd               \\
+        what                  & \textsl{scipy}\ts{a}         & \textsl{numdifftools}& \textsl{jax}        & \textsl{autograd}      \\
         \midrule
         $\dd f(x)/\dd x$      & \verb|M.gradient|            & \verb|Derivative|&   \verb|grad|            & \verb|grad|            \\
-        $\nabla f(\ve x)$     & \verb|O.approx_fprime|       & \verb|Gradient|  &   ???\verb|vmap(grad(.))|   & ????\verb|elementwise_grad|\\
+        $\nabla f(\ve x)$     & \verb|O.approx_fprime|       & \verb|Gradient|  &                          &                        \\
+        \ts{b}$\nabla f(\ve x) = \text{map}(\dd f(x)/\dd x, \ve x)$ &&          &   \verb|vmap(grad(.))|   & \verb|elementwise_grad|\\
         $\dd\ve f/\dd\ve x$   & \verb|N.approx_derivative|   & \verb|Jacobian|  &   \verb|jacobian|        & \verb|jacobian|        \\
         \bottomrule
     \end{tabular}
-    \caption{scipy: \texttt{M=scipy.misc}, \texttt{O=scipy.optimize}, \texttt{N=optimize.\char`_numdiff}}
+    \caption{\ts{a} \texttt{M=scipy.misc}, \texttt{O=scipy.optimize}, \texttt{N=optimize.\char`_numdiff}\\
+             \ts{b} for vectorized \textsl{numpy} functions where the Jacobian is diagonal:
+             \texttt{diag(jacobian(sin)(x)) == cos(x)}}
 \end{table}
 
-\section*{Syntax}
+\section{JVPs (forward) and VJPs (reverse) in \textsl{autograd} an \textsl{jax}}
 
-JAX (and mostly also autograd)
-
-% XXX not sure about argnums and df/dx_i, there is a diff between f(x) with x
-% \in R^n and explicit f(x_1, x_2)
-\begin{table}[h]
-    \begin{tabular}{ll}
-        \toprule
-        math                                    &   code \\
-        \midrule
-        $\td{f}{x}$                             & \texttt{grad(f)}            \\
-        ???$\pd{f(\ve x)}{x_i}$                    & \texttt{grad(f, argnums=i)} \\
-        ??? fake $\nabla f$ (e.g. \texttt{f=np.sin})   & \texttt{vmap(grad(f))} \\
-        $\ma J$                                 & \texttt{jacobian(f)}, \texttt{jacfwd(f)}, \texttt{jacrev(f)} \\
-        \bottomrule
-    \end{tabular}
-    \caption{Syntax}
-\end{table}
-
-\section*{JVPs (forward) and VJPs (reverse) in autograd an JAX}
-
-Autograd
+\textsl{autograd}
 
 \begin{itemize}
     \item They define a VJP for "each" numpy function in
         \url{https://github.com/HIPS/autograd/blob/master/autograd/numpy/numpy_vjps.py}
         using \texttt{defvjp}, also some JVPs in
         \url{https://github.com/HIPS/autograd/blob/master/autograd/numpy/numpy_jvps.py}
-        but autograd is mostly only reverse mode
+        but \textsl{autograd} is mostly only reverse mode
     \item numpy API definition
         \url{https://github.com/HIPS/autograd/blob/master/autograd/numpy/numpy_wrapper.py}
 \end{itemize}
 
-JAX
+\textsl{jax}
 
 \begin{itemize}
     \item numpy primitives defined (re-implemented using the LAX linalg layer) in
@@ -281,15 +335,45 @@ JAX
         backwards, transposing the JVP operations to get a reverse operation
 \end{itemize}
 
-Refs:
+\section{Tracing}
+
+\textsl{jax}
+
+\textsl{jax} uses a staticially typed mini-language intermediate representation
+dubbed \texttt{jaxpr} which is the result of tracing a function. Also every
+other function, e.g. \texttt{grad(f)} is represented in \texttt{jaxpr}.
+
+\begin{minted}{python}
+    >>> import jax; from jax import numpy as jnp
+    >>> f=lambda x: jnp.sum(jnp.power(jnp.sin(x),2.0))
+    >>> jax.make_jaxpr(f)(1.0)
+    { lambda  ; a.
+      let b = sin a
+          c = pow b 2.0
+          d = reduce_sum[ axes=() ] c
+      in (d,) }
+
+    >>> jax.make_jaxpr(jax.grad(f))(1.0)
+    { lambda  ; a.
+      let b = sin a
+          c = pow b 1.0
+          d = mul 2.0 c
+          e = mul 1.0 d
+          f = cos a
+          g = mul e f
+      in (g,) }
+\end{minted}
+
+\bibliographystyle{ieeetr}
+\bibliography{lit}
+
+Also:
 
 \begin{itemize}
-    \item \url{https://insidehpc.com/2017/12/deep-learning-automatic-differentiation-theano-pytorch}
-    \item \url{https://arxiv.org/abs/1502.05767}
-    \item \url{http://www.autodiff.org}
-    \item Talk by Matthew Johnson (former HIPS, now Google, JAX) about
+    \item Talk by Matthew Johnson (former HIPS, now Google, \textsl{jax}) about
         \url{https://github.com/HIPS/autograd}:
         \url{http://videolectures.net/deeplearning2017_johnson_automatic_differentiation}
 \end{itemize}
+
 
 \end{document}
