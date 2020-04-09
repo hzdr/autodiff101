@@ -1,28 +1,25 @@
 from autograd import grad, elementwise_grad, jacobian
 from autograd.extend import primitive, defvjp
-import autograd.numpy as np
+import autograd.numpy as wnp
+import numpy as np
 
-# XXX pytorch now has a jax-like API
-# https://github.com/pytorch/pytorch/commit/1f4a4aaf643b70ebcb40f388ae5226a41ca57d9b
-
+rand = np.random.rand
 
 # scalar derivative
 # df/dx : R -> R
-dfdx = grad(np.sin)
-assert np.allclose(grad(np.sin)(1.234), np.cos(1.234))
-assert np.allclose(dfdx(1.234), np.cos(1.234))
+assert wnp.allclose(grad(wnp.sin)(1.234), wnp.cos(1.234))
 
 # The Jacobian of a vectorized numpy function is diagonal and square $J \in
 # R^{n\times n}$ with
 # $J_{ii} = df_i/dx_i$ where $f_i \equiv f \forall i$
 # $J : R^n -> R^n$
-x = np.random.rand(10)*5 - 5
-assert np.allclose(jacobian(np.sin)(x), np.diag(np.cos(x)))
+x = rand(10)*5 - 5
+assert wnp.allclose(jacobian(wnp.sin)(x), wnp.diag(wnp.cos(x)))
 
 # `elementwise_grad` df/dx : R^n -> R^n (vectorized), returns the column sum of
 # the Jacobian
-assert np.allclose(elementwise_grad(np.sin)(x), np.cos(x))
-assert np.allclose(jacobian(np.sin)(x).sum(axis=0), np.cos(x))
+assert wnp.allclose(elementwise_grad(wnp.sin)(x), wnp.cos(x))
+assert wnp.allclose(jacobian(wnp.sin)(x).sum(axis=0), wnp.cos(x))
 
 
 @primitive
@@ -32,12 +29,12 @@ def pow2(x):
 
 @primitive
 def mysin(x):
-    return np.sin(x)
+    return wnp.sin(x)
 
 
 @primitive
 def mysum(x):
-    return np.sum(x)
+    return wnp.sum(x)
 
 
 def pow2_vjp(ans, x):
@@ -57,12 +54,12 @@ def pow2_vjp_with_jac(ans, x):
     else:
         # The same:
         #   jac = np.diag(2*x)
-        jac = jacobian(lambda x: np.power(x,2))(x)
-        return lambda g: np.dot(g, jac)
+        jac = jacobian(lambda x: wnp.power(x,2))(x)
+        return lambda g: wnp.dot(g, jac)
 
 
 def mysin_vjp(ans, x):
-    return lambda g: g * np.cos(x)
+    return lambda g: g * wnp.cos(x)
 
 
 # Works in JAX but not here in the elementwise_grad() test. See
@@ -73,25 +70,25 @@ def mysin_vjp(ans, x):
 
 
 def func(x):
-    return np.sum(np.power(np.sin(x),2))
+    return wnp.sum(wnp.power(wnp.sin(x),2))
 
 
 def func_with_vjp(x):
-    return np.sum(pow2(mysin(x)))
+    return wnp.sum(pow2(mysin(x)))
 
 
 defvjp(mysin, mysin_vjp)
 for p_jvp in [pow2_vjp, pow2_vjp_with_jac]:
     defvjp(pow2, p_jvp)
 
-    assert np.allclose([func(xi)          for xi in x],
-                       [func_with_vjp(xi) for xi in x])
+    assert wnp.allclose([func(xi)          for xi in x],
+                        [func_with_vjp(xi) for xi in x])
 
-    assert np.allclose(func(x),
-                       func_with_vjp(x))
+    assert wnp.allclose(func(x),
+                        func_with_vjp(x))
 
-    assert np.allclose([grad(func)(xi)          for xi in x],
-                       [grad(func_with_vjp)(xi) for xi in x])
+    assert wnp.allclose([grad(func)(xi)          for xi in x],
+                        [grad(func_with_vjp)(xi) for xi in x])
 
-    assert np.allclose(elementwise_grad(func)(x),
-                       elementwise_grad(func_with_vjp)(x))
+    assert wnp.allclose(elementwise_grad(func)(x),
+                        elementwise_grad(func_with_vjp)(x))
