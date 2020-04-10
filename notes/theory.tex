@@ -9,6 +9,7 @@
 \usepackage{url}
 \usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black,hyperfootnotes=true]{hyperref}
 \usepackage{cancel}
+\usepackage{xspace}
 
 \newcommand{\ve}[1]{\ensuremath{\bm{\mathit{#1}}}}
 \newcommand{\ma}[1]{\ensuremath{\bm{\mathbf{#1}}}}
@@ -23,6 +24,13 @@
 \newcommand{\green}[1]{{\color{green}{#1}}}
 \newcommand{\blue}[1]{{\color{blue}{#1}}}
 \newcommand{\ts}[1]{\textsuperscript{#1}}
+\newcommand{\soft}[1]{\textsl{#1}\xspace}
+\newcommand{\numpy}{\soft{numpy}}
+\newcommand{\pytorch}{\soft{pytorch}}
+\newcommand{\jax}{\soft{jax}}
+\newcommand{\autograd}{\soft{autograd}}
+\newcommand{\scipy}{\soft{scipy}}
+\newcommand{\numdifftools}{\soft{numdifftools}}
 
 \begin{document}
 
@@ -59,8 +67,8 @@ Taken (mostly) from \cite{baydin_2018}.
             \item in-place ops such as \texttt{A[i,j] *= 3} instead of
                 \texttt{B=A*3} are hard to support and can slow things down b/c
                 large parts of the comp graph must be rewritten instead of just
-                adding a new variable; in \textsl{autograd} they aren't even
-                supported at all; \textsl{jax} and \textsl{pytorch} have a jit,
+                adding a new variable; in \autograd they aren't even
+                supported at all; \jax and \pytorch have a jit,
                 which should optimize out-of-place modifications and copies
                 away
         \end{itemize}
@@ -83,7 +91,7 @@ The derivative using the chain rule
         &= \left(\td{c}{b}\,\td{b}{a}\right)\,\td{a}{x}\quad\text{reverse}\\
 \end{align*}
 
-\section{Forward and reverse AD (in \textsl{jax})}
+\section{Forward and reverse AD (in \jax)}
 %
 Now we consider a multivariate vector function $\ve f: \mathbb R^n \ra \mathbb R^m$.
 The Jacobian is
@@ -119,12 +127,12 @@ we need the first row $\ma J[1,:]$ only.
 
 \subsection{Vectorized numpy functions}
 
-Vectorized \textsl{numpy} functions are a bit of a special case, since
-depending on input, they are either $f(x):\mathbb R\ra\mathbb R$ or $\ve f(\ve
-x):\mathbb R^n\ra\mathbb R^n$, but never $f(\ve x): \mathbb R^n \ra \mathbb R$
-(i.e. the gradient $\nabla f(\ve x)$ is not defined for them). Therefore, their
-Jacobian for a given \ve x is always diagonal, which is a very neat property
-that we'll use later.
+Vectorized \numpy functions $f$ are a bit of a special case, since depending on
+input, they are either $f(x):\mathbb R\ra\mathbb R$ or $\ve f(\ve x):\mathbb
+R^n\ra\mathbb R^n$, but never $f(\ve x): \mathbb R^n \ra \mathbb R$ (i.e. the
+gradient $\nabla f(\ve x)$ is not defined for them). Also $f_i\equiv f$. Since
+each $f_i$ is a function of only the $x_i$ it is applied to, the Jacobian is
+always diagonal, which is a very neat property that we'll use later.
 
 \subsection{Forward}
 
@@ -201,7 +209,7 @@ primitive function $\ve a(\ve x)$, maps a so-called
     \texttt{vjp}: (\ve x, \ve v) \ra \left(\ve a(\ve x), \ma J(\ve x)\,\ve v\right)
 \end{equation*}
 to the function at $\ve x$ and its JVP with $\ve v$. This is very roughly how
-\textsl{jax} works inside. Each primitive (numpy) function has an associated
+\jax works inside. Each primitive (numpy) function has an associated
 function defined by using \texttt{jax.devjvp} which gets called when evaluating
 the chain rule. \textbf{The most important trick is that the intermediate
 Jacobians are never explicitly build}. The JVP function only has to return the
@@ -209,6 +217,9 @@ Jacobians are never explicitly build}. The JVP function only has to return the
 functions, all Jacobians are diagonal, which makes evaluating the result of $\ma J(\ve x)\,\ve v$
 simple and efficient. In most cases, we get away with element-wise operations
 on \ve v.
+
+Side note: in the AD literature, applying JVPs is also called
+"push-forward" of the vector (here $\ve e_j$) from inputs to outputs ($\ve x\ra\ve c$).
 
 When we repeat the process and apply all possible $\ve e_j$ (i.e. the whole
 identity matrix), we can build up the full $\ma J$ if we need to, one column at
@@ -259,18 +270,22 @@ In the code, we initialize with $\ve e_i$ and this time apply
         &= \blue{\ve v_i'^\top\,\pd{\ve a}{\ve x}}\\
         &= \ma J[i,:]
 \end{align*}
-Again, we can apply all possible $\ve e_i$ to build up full $\ma J$, this time
+Again, we can apply all possible $\ve e_i$ to build up the full $\ma J$, this time
 one row at a time. For the edge case $f(\ve x): \mathbb R^n \ra \mathbb R^1$
 (first row) we are done in one backward pass.
+
+Side note: in the AD literature, applying VJPs is also called
+"pull-back" of the vector (here $\ve e_i$) from outputs to inputs ($\ve x\la\ve c$).
 
 Note that
 \begin{equation*}
     \ve e_i^\top\,\ma J = \ma J^\top\,\ve e_i
 \end{equation*}
-i.e. use JVPs on $\ma J^\top$. This is how \textsl{jax} does it, as far as I
-can tell. In contrast to \textsl{autograd}, in \textsl{jax} they never define
+i.e. use JVPs on $\ma J^\top$. This is how \jax does it, as far as I
+can tell. In contrast to \autograd, in \jax they never define
 VJPs but instead only JVPs and use the transpose trick to evaluate the reverse
-mode.
+mode. TODO: find out how \pytorch does it. For now we operate under the
+assumption that they do VJPs as well as in \autograd.
 
 \subsection{Reverse in ML a.k.a. backprop}
 
@@ -290,39 +305,77 @@ training and $\ve x$ are the network's parameters. This is exactly the second
 edge case from above. When using reverse mode, we get the gradient $\pdi{f}{\ve
 x} = \ma J[1,:]$ in a single reverse pass (i.e. backprop).
 
-\section{Comparison of diff implementations}
+Example: \pytorch. Note that \pytorch is not functional, it thinks in terms of
+\texttt{torch.Tensor} objects, so when using our little example from above, we
+use the "loss tensor" \texttt{c} of shape \texttt{(1,)} instead of the loss
+function \texttt{f}. With knowledge of reverse mode, we can make sense of
+\pytorch's API design:
+%
+\begin{minted}{python}
+    # gradient of scalar result c w.r.t. x, evaluated at x
+    >>> x = torch.rand(3, requires_grad=True)
+    >>> c = torch.sin(x).pow(2.0).sum()
+    >>> c.backward()
+    >>> print(x.grad)
+    tensor([0.1225, 0.6675, 0.6350])
+\end{minted}
+%
+In \pytorch the tracing of forward ops is implemented such that a tensor, here
+the input \texttt{x}, records all operations applied to it. Then, we call the
+\texttt{backward()} method of the final output tensor, here \texttt{c}. This
+"pulls back" the derivatives (starting with $\pdi{f}{f}=1$) from the output
+\texttt{c} to the input and the derivatives are stored in $\pdi{c}{\ve x} =
+\texttt{x.grad}$.\footnote{This is super weird, pull-back or not.
+\texttt{c.grad} would be much more intuitive.}
+
+We can also perform VJPs by calling \texttt{backward()} of an intermediate
+vector-valued variable and giving it a vector argument ($\ve
+e$ or $\ve v$ above).
+%
+\begin{minted}{python}
+    # VJP: dot(v, db/da), extract one row of J
+    >>> x = torch.rand(3, requires_grad=True)
+    >>> v = torch.tensor([1.0,0,0])
+    >>> b = torch.sin(x).pow(2.0)
+    >>> b.backward(v)
+    >>> print(x.grad)
+    tensor([0.9619, 0.0000, 0.0000])
+\end{minted}
+
+\section{Comparison of functional diff implementations}
 
 \begin{table}[h]
     \begin{tabular}{lllll}
         \toprule
-        what                  & \textsl{scipy}\ts{a}         & \textsl{numdifftools}& \textsl{jax}        & \textsl{autograd}      \\
+        what                  & \scipy\ts{a}         & \numdifftools& \jax        & \autograd      \\
         \midrule
         $\dd f(x)/\dd x$      & \verb|M.gradient|            & \verb|Derivative|&   \verb|grad|            & \verb|grad|            \\
         $\nabla f(\ve x)$     & \verb|O.approx_fprime|       & \verb|Gradient|  &                          &                        \\
         \ts{b}$\nabla f(\ve x) = \text{map}(\dd f(x)/\dd x, \ve x)$ &&          &   \verb|vmap(grad(.))|   & \verb|elementwise_grad|\\
-        $\dd\ve f/\dd\ve x$   & \verb|N.approx_derivative|   & \verb|Jacobian|  &   \verb|jacobian|        & \verb|jacobian|        \\
+        $\pdi{\ve f}{\ve x}$  & \verb|N.approx_derivative|   & \verb|Jacobian|  &   \verb|jacobian|        & \verb|jacobian|        \\
         \bottomrule
     \end{tabular}
-    \caption{\ts{a} \texttt{M=scipy.misc}, \texttt{O=scipy.optimize}, \texttt{N=optimize.\char`_numdiff}\\
-             \ts{b} for vectorized \textsl{numpy} functions where the Jacobian is diagonal:
+    \caption{\scipy, \numdifftools: FD; \jax, \autograd: AD\\
+             \ts{a} \texttt{M=scipy.misc}, \texttt{O=scipy.optimize}, \texttt{N=optimize.\char`_numdiff}\\
+             \ts{b} for vectorized \numpy functions where the Jacobian is diagonal:
              \texttt{diag(jacobian(sin)(x)) == cos(x)}}
 \end{table}
 
-\section{JVPs (forward) and VJPs (reverse) in \textsl{autograd} an \textsl{jax}}
+\section{JVPs (forward) and VJPs (reverse) in \autograd an \jax}
 
-\textsl{autograd}
+\subsection{\autograd}
 
 \begin{itemize}
     \item They define a VJP for "each" numpy function in
         \url{https://github.com/HIPS/autograd/blob/master/autograd/numpy/numpy_vjps.py}
         using \texttt{defvjp}, also some JVPs in
         \url{https://github.com/HIPS/autograd/blob/master/autograd/numpy/numpy_jvps.py}
-        but \textsl{autograd} is mostly only reverse mode
+        but \autograd is mostly only reverse mode
     \item numpy API definition
         \url{https://github.com/HIPS/autograd/blob/master/autograd/numpy/numpy_wrapper.py}
 \end{itemize}
 
-\textsl{jax}
+\subsection{\jax}
 
 \begin{itemize}
     \item numpy primitives defined (re-implemented using the LAX linalg layer) in
@@ -337,9 +390,9 @@ x} = \ma J[1,:]$ in a single reverse pass (i.e. backprop).
 
 \section{Tracing}
 
-\textsl{jax}
+\subsection{\jax}
 
-\textsl{jax} uses a staticially typed mini-language intermediate representation
+\jax uses an intermediate representation
 dubbed \texttt{jaxpr} which is the result of tracing a function. Also every
 other function, e.g. \texttt{grad(f)} is represented in \texttt{jaxpr}.
 
@@ -364,13 +417,14 @@ other function, e.g. \texttt{grad(f)} is represented in \texttt{jaxpr}.
       in (g,) }
 \end{minted}
 
+
 \bibliographystyle{ieeetr}
 \bibliography{lit}
 
 Also:
 
 \begin{itemize}
-    \item Talk by Matthew Johnson (former HIPS, now Google, \textsl{jax}) about
+    \item Talk by Matthew Johnson (former HIPS, now Google, \jax) about
         \url{https://github.com/HIPS/autograd}:
         \url{http://videolectures.net/deeplearning2017_johnson_automatic_differentiation}
 \end{itemize}
