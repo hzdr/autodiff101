@@ -1,4 +1,4 @@
-\documentclass[paper=a4,11pt,headsepline]{scrartcl}
+\documentclass[parskip,paper=a4,11pt,headsepline]{scrartcl}
 
 \usepackage[margin=2cm]{geometry}
 \usepackage[fleqn]{amsmath}
@@ -10,7 +10,6 @@
 \usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black,hyperfootnotes=true]{hyperref}
 \usepackage{cancel}
 \usepackage{xspace}
-\usepackage[parfill]{parskip}
 
 \newcommand{\ve}[1]{\ensuremath{\bm{\mathit{#1}}}}
 \newcommand{\ma}[1]{\ensuremath{\bm{\mathbf{#1}}}}
@@ -32,6 +31,7 @@
 \newcommand{\autograd}{\soft{autograd}}
 \newcommand{\scipy}{\soft{scipy}}
 \newcommand{\numdifftools}{\soft{numdifftools}}
+\newcommand{\tf}{\soft{tensorflow}}
 \newcommand{\co}[1]{\texttt{#1}}
 
 \begin{document}
@@ -129,7 +129,7 @@ f(\ve x): \mathbb R^n \ra \mathbb R^1\quad \ma J =
 \end{equation*}
 we need the first row $\ma J[1,:]$ only.
 
-\subsection{Vectorized numpy functions}
+\subsection{Vectorized \numpy functions}
 
 Vectorized \numpy functions $f$ are a bit of a special case, since depending on
 input, they are either $f(x):\mathbb R\ra\mathbb R$ or $\ve f(\ve x):\mathbb
@@ -222,7 +222,7 @@ to the function at $\ve x$ and its JVP with $\ve v$. This is very roughly how
 JVP function defined by using \co{jax.defjvp} which gets called when evaluating
 the chain rule. \textbf{The most important trick is that the intermediate
 Jacobians are never explicitly build}. The JVP function only has to return the
-\emph{result} of $\ma J(\ve x)\,\ve v$. Especially, for numpy's vectorized
+\emph{result} of $\ma J(\ve x)\,\ve v$. Especially, for \numpy's vectorized
 functions, all Jacobians are diagonal, which makes evaluating the result of $\ma J(\ve x)\,\ve v$
 simple and efficient. In most cases, we get away with element-wise operations
 on \ve v.
@@ -232,14 +232,14 @@ Side note: in the AD literature, applying JVPs is also called
 
 When we repeat the process and apply all possible $\ve e_j$ (i.e. the whole
 identity matrix), we can build up the full $\ma J$ if we need to, one column at
-a time. For the edge case $\ve f(x): \mathbb R \ra \mathbb R^m$ (first column)
+a time. For the edge case $\ve f(x): \mathbb R^1 \ra \mathbb R^m$ ($n=1$, first column)
 we are finished in one forward pass. In general forward mode is efficient for
 "tall" Jacobians where $m\gg n$ and inefficient for "wide" ones where $m\ll n$.
-The other edge case $f(\ve x): \mathbb R^n \ra \mathbb R$ (first row a.k.a.
+The other edge case $f(\ve x): \mathbb R^n \ra \mathbb R^1$ ($m=1$, first row a.k.a.
 $\nabla f(\ve x)$) is inefficient in forward mode since we need $n$ passes to
 calculate each $\pdi{f}{x_j}$. This has thus similar complexity as finite
-differences, where we also do something like $(f(\ve x +\ve e_j\,h) - f(\ve
-x-\ve e_j h))/2\,h$ $n$ times.
+differences, where we also repeat $n$ times something like $(f(\ve x +\ve e_j\,h) - f(\ve
+x-\ve e_j h))/2\,h$.
 
 \subsection{Reverse}
 
@@ -279,12 +279,12 @@ In the code, we initialize with $\ve e_i$ and this time apply
         &= \blue{\ve v_i'^\top\,\pd{\ve a}{\ve x}}\\
         &= \ma J[i,:]
 \end{align*}
-Again, we can apply all possible $\ve e_i$ to build up the full $\ma J$, this time
-one row at a time. For the edge case $f(\ve x): \mathbb R^n \ra \mathbb R^1$
-(first row) we are done in one backward pass.
+Again, we can apply all possible $\ve e_i$ to build up the full $\ma J$, this
+time one row at a time. For the edge case $f(\ve x): \mathbb R^n \ra \mathbb
+R^1$ ($m=1$, first row) we are done in one backward pass.
 
-Side note: in the AD literature, applying VJPs is also called
-"pull-back" of the vector (here $\ve e_i$) from outputs to inputs ($\ve x\la\ve c$).
+Side note: in the AD literature, applying VJPs is also called "pull-back" of
+the vector (here $\ve e_i$) from outputs to inputs ($\ve x\la\ve c$).
 
 Note that
 \begin{equation*}
@@ -314,19 +314,41 @@ training and $\ve x$ are the network's parameters. This is exactly the second
 edge case from above. When using reverse mode, we get the gradient $\pdi{f}{\ve
 x} = \ma J[1,:]$ in a single reverse pass (i.e. backprop).
 
-Example: \pytorch. Note that \pytorch is not functional, it thinks in terms of
-\co{torch.Tensor} objects, so when using our little example from above, we
-use the "loss tensor" \co{c} of shape \co{(1,)} instead of the loss
-function \co{f}. With knowledge of reverse mode, we can make sense of
-\pytorch's API design:
+\subsection{jax, autograd}
+
+\begin{minted}{python}
+    >>> x = np.random.rand(3)
+    >>> grad(f)(x)
+    DeviceArray([0.39920127, 0.8924804 , 0.05259493], dtype=float32)
+\end{minted}
+
+\jax returns \co{DeviceArray} objects because it used \tf's XLA compiler.
+\autograd returns plain \numpy arrays.
+
+\subsection{\pytorch}
+
+\pytorch is not functional, it thinks in terms of \co{torch.Tensor} objects, so
+when using our little example from above, we use the "loss tensor" \co{c} of
+shape \co{(1,)} instead of the loss function \co{f}. With knowledge of reverse
+mode, we can make sense of \pytorch's API design. Observe how each tensor has a
+\verb|grad_fn| attribute which corresponds to the \co{jvp} (forward) or
+\co{vjp} (backward) components in \jax.
 %
 \begin{minted}{python}
     # gradient of scalar result c w.r.t. x, evaluated at x
+    # step by step, see grad_fn
     >>> x = torch.rand(3, requires_grad=True)
-    >>> c = torch.sin(x).pow(2.0).sum()
+
+    ##c = x.sin().pow(2.0).sum()
+    >>> a = torch.sin(x)
+    tensor([0.7826, 0.2057, 0.5249], grad_fn=<SinBackward>)
+    >>> b = torch.pow(a, 2.0)
+    tensor([0.6125, 0.0423, 0.2755], grad_fn=<PowBackward0>)
+    >>> c = torch.sum(b)
+    tensor(0.9303, grad_fn=<SumBackward0>)
     >>> c.backward()
-    >>> print(x.grad)
-    tensor([0.1225, 0.6675, 0.6350])
+    >>> x.grad
+    tensor([0.9743, 0.4026, 0.8935])
 \end{minted}
 %
 In \pytorch the tracing of forward ops is implemented such that a tensor, here
@@ -345,10 +367,15 @@ e$ or $\ve v$ above).
     # VJP: extract one row of J
     >>> x = torch.rand(3, requires_grad=True)
     >>> v = torch.tensor([1.0,0,0])
-    >>> b = torch.sin(x).pow(2.0)
+    >>> b = x.sin().pow(2.0)
     >>> b.backward(v)
-    >>> print(x.grad)
+    >>> x.grad
     tensor([0.9619, 0.0000, 0.0000])
+\end{minted}
+And in particular the default for "seeding" the backward pass starting at \co{c}
+is indeed \co{1.0} as in $\pdi{f}{f}=1$.
+\begin{minted}{python}
+    >>> c.backward(torch.tensor(1.0))
 \end{minted}
 
 \section{Comparison of functional diff implementations}
@@ -397,7 +424,7 @@ e$ or $\ve v$ above).
         backwards, transposing the JVP operations to get a reverse operation
 \end{itemize}
 
-\section{Tracing}
+\section{Tracing and compilation}
 
 \subsection{\jax}
 
@@ -425,6 +452,16 @@ other function, e.g. \co{grad(f)} is represented in \co{jaxpr}.
           g = mul e f
       in (g,) }
 \end{minted}
+
+It uses \tf's XLA compiler, which uses LLVM, to compile for CPU and GPU targets.
+
+\subsection{\pytorch}
+
+The result of \pytorch's tracing is some representation of the comp graph (ATM
+IDK more details about that). \pytorch's jit creates something called
+TorchScript, which is a serialized version of the graph. That can be exported
+to disk, loaded into C++ using the libtorch C++ API and executed as a C++
+program.
 
 
 \bibliographystyle{ieeetr}
