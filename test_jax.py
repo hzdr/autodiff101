@@ -1,4 +1,12 @@
-"""When we call
+"""jax examples (https://github.com/google/jax).
+
+Define custom derivatives via JVPs (forward mode).
+
+The code examples are not useful production code since those derivatives are
+already implemented. We use them to learn and to show how the library operates
+inside.
+
+When we call
     >>> grad(func)(x)
 
 all x and v in each custom_jvp function have x's shape, which makes sense and
@@ -78,7 +86,7 @@ def mysum_jvp(primals, tangents):
     """
     jacobian(wnp.sum)(x) == wnp.ones_like(x), i.e. 1st row of J b/c sum: R^n ->
     R, so dot(jac, v) == sum(v). However, note that when v is scalar, e.g.
-    wnp.array(1.234), dot() does NOT perform a sum, but only multipiles
+    wnp.array(1.234), dot() does NOT perform a sum, but only multiplies
     (scalar-vector product). Oddly enough, in this case returning either a
     scalar, e.g. one of
         sum(v)

@@ -1,3 +1,12 @@
+"""autograd examples (https://github.com/hips/autograd).
+
+Define custom derivatives via VJPs (reverse mode).
+
+The code examples are not useful production code since those derivatives are
+already implemented. We use them to learn and to show how the library operates
+inside.
+"""
+
 from autograd import grad, elementwise_grad, jacobian
 from autograd.extend import primitive, defvjp
 import autograd.numpy as wnp
@@ -51,7 +60,7 @@ def mysum_vjp(ans, x):
     """
     See autograd/numpy/numpy_vjps.py -> grad_np_sum() for how they do it. The
     returned v's shape must be corrected sometimes. Here we explicitly write
-    out the JVP using jacobian(wnp.sum)(x) == wnp.ones_like(x) which is always
+    the VJP using jacobian(wnp.sum)(x) == wnp.ones_like(x) which is always
     correct. See test_jax.py:mysum_jvp() for more comments. Note that in
     contrast to JAX, here v is *always* scalar, a fact that we can't explain
     ATM. As JAX is autograd 2.0, we consider this an autograd quirk and leave
