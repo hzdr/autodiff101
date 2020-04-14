@@ -1,23 +1,19 @@
-# pytorch now has a jax-like functional grad API, i.e. jacobian(), hessian(),
-# jvp() etc, but no grad() for grad(func)??? AFAIK torch.autograd.grad()
-# operates on tensors
-#   torch.autograd.functional
-# https://github.com/pytorch/pytorch/commit/1f4a4aaf643b70ebcb40f388ae5226a41ca57d9b
-#
-# Not in 1.4 :-/, but on GH already in 1.5 release
+"""
+pytorch now has a jax-like functional grad API [1] in
+    torch.autograd.functional
+in addition to
+    # jax.nn and jax.experimental.stax
+    torch.nn.functional
 
-### like jax
-##torch.autograd.functional
+resources
+    https://pytorch.org/tutorials/beginner/pytorch_with_examples.html#autograd
+    https://pytorch.org/tutorials/beginner/blitz/autograd_tutorial.html#sphx-glr-beginner-blitz-autograd-tutorial-py
+    https://pytorch.org/docs/stable/autograd.html
+    https://pytorch.org/docs/stable/notes/autograd.html
 
-### jax.nn
-### jax.jax.experimental.stax
-##torch.nn.functional
-
-# AG resources
-#   https://pytorch.org/tutorials/beginner/pytorch_with_examples.html#autograd
-#   https://pytorch.org/tutorials/beginner/blitz/autograd_tutorial.html#sphx-glr-beginner-blitz-autograd-tutorial-py
-#   https://pytorch.org/docs/stable/autograd.html
-#   https://pytorch.org/docs/stable/notes/autograd.html
+[1] https://github.com/pytorch/pytorch/commit/1f4a4aaf643b70ebcb40f388ae5226a41ca57d9b
+    Release 1.5 probably
+"""
 
 import torch
 wnp = torch
@@ -25,18 +21,31 @@ import numpy as np
 
 rand = torch.rand
 
-# gradient of scalar result c w.r.t. x, evaluated at x
-x = torch.rand(3, requires_grad=True)
-c = torch.sin(x).pow(2.0).sum()
-c.backward()
-print(x.grad)
+### gradient of scalar result c w.r.t. x, evaluated at x
+### step by step, see grad_fn
+##x = torch.rand(3, requires_grad=True)
+####c = x.sin().pow(2.0).sum()
+##a = torch.sin(x)
+##print(a)
+##b = torch.pow(a, 2.0)
+##print(b)
+##c = torch.sum(b)
+##print(c)
+##c.backward()
+##print(x.grad)
+##
+##
+### VJP: extract one row of J
+##x = torch.rand(3, requires_grad=True)
+##v = torch.tensor([1.0,0,0])
+##b = x.sin().pow(2.0)
+##b.backward(v)
+##print(x.grad)
 
-# VJP: extract one row of J
-x = torch.rand(3, requires_grad=True)
-v = torch.tensor([1.0,0,0])
-b = torch.sin(x).pow(2.0)
-b.backward(v)
-print(x.grad)
+
+#-----------------------------------------------------------------------------
+# poor man's functional API (pytorch 1.4) for testing against jax and autograd
+#-----------------------------------------------------------------------------
 
 def _wrap_input(func):
     def wrapper(_x):
@@ -50,9 +59,11 @@ def _wrap_input(func):
         return func(x)
     return wrapper
 
+
 @_wrap_input
 def cos(x):
     return wnp.cos(x)
+
 
 @_wrap_input
 def func(x):
@@ -65,7 +76,7 @@ def grad(func):
         out = func(x)
         out.backward(wnp.ones_like(out))
         # x.grad is a Tensor of x.shape which holds the derivatives of func
-        # w.r.t each x[i,j,k,...] evaluated at x .... great API design, tho
+        # w.r.t each x[i,j,k,...] evaluated at x ... srsly?
         return x.grad
     return _gradfunc
 
@@ -75,3 +86,4 @@ elementwise_grad = grad
 assert wnp.allclose(grad(wnp.sin)(1.234), cos(1.234))
 x = rand(10)*5 - 5
 assert wnp.allclose(elementwise_grad(wnp.sin)(x), wnp.cos(x))
+assert grad(func)(x).shape == x.shape
