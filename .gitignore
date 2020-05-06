@@ -10,5 +10,7 @@
 *.swp
 *.swp
 *.toc
+*.bcf
+*.run.xml
 __pycache__
 _minted-*

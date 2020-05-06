@@ -10,4 +10,4 @@ allclean: _restclean
 
 _restclean:
 	rm -rf _minted-*
-	rm -f *.bak
+	rm -f *.bak *.bbl *.run.xml
