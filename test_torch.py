@@ -1,5 +1,5 @@
 """
-pytorch now has a jax-like functional grad API [1] in
+pytorch now has a jax-like functional grad API [1] as of v1.5
     torch.autograd.functional
 in addition to
     # jax.nn and jax.experimental.stax
@@ -12,7 +12,6 @@ resources
     https://pytorch.org/docs/stable/notes/autograd.html
 
 [1] https://github.com/pytorch/pytorch/commit/1f4a4aaf643b70ebcb40f388ae5226a41ca57d9b
-    Release 1.5 probably
 """
 
 import torch
@@ -31,6 +30,7 @@ rand = torch.rand
 ##print(b)
 ##c = torch.sum(b)
 ##print(c)
+### same as torch.autograd.grad(c,x)
 ##c.backward()
 ##print(x.grad)
 ##
@@ -44,7 +44,8 @@ rand = torch.rand
 
 
 #-----------------------------------------------------------------------------
-# poor man's functional API (pytorch 1.4) for testing against jax and autograd
+# poor man's functional API (pytorch 1.4, 1.5) for testing against jax and
+# autograd
 #-----------------------------------------------------------------------------
 
 def _wrap_input(func):
@@ -83,7 +84,24 @@ def grad(func):
 elementwise_grad = grad
 
 
-assert wnp.allclose(grad(wnp.sin)(1.234), cos(1.234))
-x = rand(10)*5 - 5
-assert wnp.allclose(elementwise_grad(wnp.sin)(x), wnp.cos(x))
-assert grad(func)(x).shape == x.shape
+def test():
+    assert wnp.allclose(grad(wnp.sin)(1.234), cos(1.234))
+    x = rand(10)*5 - 5
+    assert wnp.allclose(elementwise_grad(wnp.sin)(x), wnp.cos(x))
+    assert grad(func)(x).shape == x.shape
+
+    # Different grad APIs
+    x1 = rand(3, requires_grad=True)
+    # boy is this stupid, this is how one copies an array in pytorch
+    x2 = x1.clone().detach()
+    x2.requires_grad = True
+    c1 = func(x1)
+    # same as torch.autograd.backward(c1)
+    c1.backward()
+    g1 = x1.grad
+    c2 = func(x2)
+    g2 = torch.autograd.grad(c2, x2)[0]
+    assert (g1==g2).all()
+
+if __name__ == '__main__':
+    test()
