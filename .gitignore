@@ -6,11 +6,14 @@
 *.fls
 *.log
 *.out
-##*.pdf
+*.pdf
 *.swp
 *.swp
 *.toc
 *.bcf
+*.nav
+*.snm
+*.vrb
 *.run.xml
 __pycache__
 _minted-*
