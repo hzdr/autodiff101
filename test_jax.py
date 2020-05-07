@@ -33,10 +33,12 @@ def elementwise_grad(func):
 
 @jax.custom_jvp
 def pow2(x):
-    return x**2
+    return wnp.power(x, 2.0)
 
-
-# We call defjvp() below in the tests for pow2()'s two JVP implementations.
+#
+# pow2(), mysin(): We call defjvp() below in tests to check seevral JVP
+# implementations.
+#
 
 ##@pow2.defjvp
 def pow2_jvp(primals, tangents):
@@ -52,15 +54,12 @@ def pow2_jvp_with_jac(primals, tangents):
     """
     x, = primals
     v, = tangents
-    # called from grad(func)(x) with x scalar, here we get passed np.array(x)
-    # with x.shape == ()
+    # jacobian() works for scalar and 1d array input, diag() doesn't
     if x.shape == ():
         return pow2(x), 2*x * v
-    # called from grad(func)(x) with x.shape == (n,)
     else:
-        # The same:
-        #   jac = np.diag(2*x)
-        jac = jacobian(lambda x: wnp.power(x,2))(x)
+        ##jac = jacobian(lambda x: wnp.power(x,2))(x)
+        jac = wnp.diag(2*x)
         return pow2(x), wnp.dot(jac, v)
 
 
@@ -69,11 +68,24 @@ def mysin(x):
     return wnp.sin(x)
 
 
-@mysin.defjvp
+##@mysin.defjvp
 def mysin_jvp(primals, tangents):
     x, = primals
     v, = tangents
-    return wnp.sin(x), wnp.cos(x) * v
+    return mysin(x), wnp.cos(x) * v
+
+
+##@mysin.defjvp
+def mysin_jvp_with_jac(primals, tangents):
+    x, = primals
+    v, = tangents
+    # jacobian() works for scalar and 1d array input, diag() doesn't
+    if x.shape == ():
+        return mysin(x), wnp.cos(x) * v
+    else:
+        ##jac = jacobian(wnp.sin)(x)
+        jac = wnp.diag(wnp.cos(x))
+        return mysin(x), wnp.dot(jac, v)
 
 
 @jax.custom_jvp
@@ -123,8 +135,10 @@ def test():
     assert wnp.allclose(elementwise_grad(wnp.sin)(x), wnp.cos(x))
     assert (jacobian(wnp.sum)(x) == wnp.ones_like(x)).all()
 
-    for p2_jvp in [pow2_jvp, pow2_jvp_with_jac]:
+    for p2_jvp, s_jvp  in [(pow2_jvp, mysin_jvp),
+                           (pow2_jvp_with_jac, mysin_jvp_with_jac)]:
         pow2.defjvp(p2_jvp)
+        mysin.defjvp(s_jvp)
         assert wnp.allclose([func(xi)          for xi in x],
                             [func_with_jvp(xi) for xi in x])
 

@@ -26,19 +26,15 @@ def pow2_vjp(ans, x):
 
 
 def pow2_vjp_with_jac(ans, x):
-    """ VJP where we really build the intermediate Jacobian. Not
+    """VJP where we really build the intermediate Jacobian. Not
     necessary in practice, only for demonstration.
     """
-    # called from grad(func)(x) with x scalar, here we get passed np.array(x)
-    # with x.shape == ()
+    # jacobian() works for scalar and 1d array input, diag() doesn't
     if x.shape == ():
         return lambda v: v * 2*x
-    # called from grad(func)(x) and elementwise_grad(func)(x) with x.shape ==
-    # (n,)
     else:
-        # The same:
-        #   jac = np.diag(2*x)
-        jac = jacobian(lambda x: wnp.power(x,2))(x)
+        ##jac = jacobian(lambda x: wnp.power(x,2))(x)
+        jac = wnp.diag(2*x)
         return lambda v: wnp.dot(v, jac)
 
 
