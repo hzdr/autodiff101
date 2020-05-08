@@ -93,31 +93,31 @@ R^m, \ve x\mapsto \ve f(\ve x)$. The Jacobian is
 \begin{equation*}
     \ve f: \mathbb R^n \ra \mathbb R^m,\quad \ma J
     = \pd{\ve f}{\ve x} =
-    \begin{pmatrix}
+    \begin{bmatrix}
         \pd{f_1}{x_1} & \cdots & \pd{f_1}{x_n}  \\
         \vdots        & \ddots & \vdots         \\
         \pd{f_m}{x_1} & \cdots & \pd{f_m}{x_n}
-    \end{pmatrix}
+    \end{bmatrix}
     \in\mathbb R^{m\times n}
 \end{equation*}
 One edge case is
 \begin{equation*}
     \ve f: \mathbb R^1 \ra \mathbb R^m\quad \ma J
     = \pd{\ve f}{x} =
-    \begin{pmatrix}
+    \begin{bmatrix}
         \pd{f_1}{x_1}  \\
         \vdots         \\
         \pd{f_m}{x_1}
-    \end{pmatrix}
+    \end{bmatrix}
     = \ma J[:,1]\in\mathbb R^{m\times 1}
 \end{equation*}
 where we need only the first column $\ma J[:,1]$. In the other edge case
 \begin{equation*}
     f: \mathbb R^n \ra \mathbb R^1\quad \ma J
     = \pd{f}{\ve x} =
-    \begin{pmatrix}
+    \begin{bmatrix}
         \pd{f_1}{x_1} & \cdots & \pd{f_1}{x_n}
-    \end{pmatrix} \equiv \nabla f
+    \end{bmatrix} \equiv \nabla f
     = \ma J[1,:] \in\mathbb R^{1\times n}
 \end{equation*}
 we need the first row $\ma J[1,:]$ only.
@@ -158,24 +158,24 @@ derivative. Analytically this means for an example $2\times 2$ system and choosi
 $x_j = x_1$
 \begin{equation*}
     \pd{\ve f}{\ve x}\,\pd{\ve x}{x_1}=
-    \begin{pmatrix}
+    \begin{bmatrix}
         \pd{f_1}{x_1} & \pd{f_1}{x_2} \\
         \pd{f_2}{x_1} & \pd{f_2}{x_2} \\
-    \end{pmatrix}
-    \begin{pmatrix}
+    \end{bmatrix}
+    \begin{bmatrix}
         \pd{x_1}{x_1} \\
         \pd{x_2}{x_1} \\
-    \end{pmatrix}
+    \end{bmatrix}
     =
-    \begin{pmatrix}
+    \begin{bmatrix}
         \pd{f_1}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_1}{x_2}\,\pd{x_2}{x_1}} \\
         \pd{f_2}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_2}{x_2}\,\pd{x_2}{x_1}} \\
-    \end{pmatrix}
+    \end{bmatrix}
     =
-    \begin{pmatrix}
+    \begin{bmatrix}
         \pd{f_1}{x_1} \\
         \pd{f_2}{x_1} \\
-    \end{pmatrix}
+    \end{bmatrix}
 \end{equation*}
 if we note that $\pdi{x_2}{x_1}=0$ and that formally by the chain rule
 \begin{gather*}
@@ -200,30 +200,28 @@ and apply JVPs as we go.
         &= \ma J[:,j]
 \end{align*}
 Now what is a JVP? We see that in order to evaluate the chain rule, each
-primitive function
-needs to know ($i$) how it would evaluate its own derivative (Jacobian, e.g.
-$\pdi{\ve b}{\ve a}$) w.r.t. its inputs and ($ii$) how to multiply that with a
-given vector. By doing ($ii$), we can always initialize the process by $\ve
-e_j$ and then multiply forward. Cool! Now how do we do $(i)$? The answer is
-that we don't (almost). There is a function \co{jax.jvp} that, for a given
-primitive function $\ve a(\ve x)$, maps a so-called
-\emph{primal}-\emph{tangent} pair $(\ve x, \ve v)$
+primitive function needs to know ($i$) how it would evaluate its own derivative
+(Jacobian, e.g. $\pdi{\ve b}{\ve a}$) w.r.t. its inputs and ($ii$) how to
+multiply that with a given vector. By doing ($ii$), we can always initialize
+the process by $\ve e_j$ and then multiply forward. Cool! Now how do we do
+$(i)$? The answer is that we don't (almost). We agument each primitive
+function $\ve z(\cdot) = \ve a(\cdot), \ve b(\cdot), \ve c(\cdot)$ with a JVP
+function that maps a
+so-called \emph{primal}-\emph{tangent} pair $(\ve x, \ve v)$ to the function at
+$\ve x$ and its JVP with $\ve v$.
 \begin{equation*}
-    \co{jvp}: (\ve x, \ve v) \mapsto \left(\ve a(\ve x), \ma J(\ve x)\,\ve v\right)
+    \co{jvp}: (\ve x, \ve v) \mapsto \left(\ve a(\ve x), \ma J_{\ve z}(\ve x)\,\ve v\right)
 \end{equation*}
-to the function at $\ve x$ and its JVP with $\ve v$. This is very roughly how
-\jax works inside. Each primitive function has an associated
-JVP function defined by using \co{jax.defjvp} which gets called when evaluating
-the chain rule.
-At each step through the chain rule along the comp graph, we evaluate the
-function's value $\ve a(\ve x)$ \emph{and} its JVP $\ma J(\ve x)\,\ve v$
-together in lock step.
-Now, \textbf{the most important trick is that the intermediate
-Jacobians are never explicitly build}. The JVP function only has to return the
-\emph{result} of $\ma J(\ve x)\,\ve v$. Especially, for \numpy's vectorized
-functions, all Jacobians are diagonal, which makes implementing $\ma J(\ve x)\,\ve v$
-simple and efficient. In most cases, we get away with element-wise operations
-on \ve v.
+This is very roughly how \jax works inside. Each primitive function has an
+associated JVP function defined by using \co{jax.defjvp} which gets called when
+evaluating the chain rule. At each step through the chain rule along the comp
+graph, we evaluate the function's value $\ve z(\ve x)$ \emph{and} its JVP $\ma
+J_{\ve z}(\ve x)\,\ve v$ together in lock step. Now, \textbf{the most important trick
+is that the intermediate Jacobians are never explicitly build}. The JVP
+function only has to return the \emph{result} of $\ma J_{\ve z}(\ve x)\,\ve v$.
+Especially, for \numpy's vectorized functions, all Jacobians are diagonal,
+which makes implementing $\ma J_{\ve z}(\ve x)\,\ve v$ simple and efficient. In most
+cases, we get away with element-wise operations on \ve v.
 
 Side note: in the AD literature, applying JVPs is also called
 "push-forward" of the vector (here $\ve e_j$) from inputs to outputs ($\ve x\ra\ve c$).
@@ -250,22 +248,22 @@ $i$-th row $\ma J[i,:]$ by multiplying from the left with $\pdi{\ve f}{f_i} =
     \begin{split}
     \left(\pd{\ve f}{f_1}\right)^\top\,\pd{\ve f}{\ve x}
     =
-    \begin{pmatrix}
+    \begin{bmatrix}
         \pd{f_1}{f_1} & \pd{f_2}{f_1} \\
-    \end{pmatrix}
-    \begin{pmatrix}
+    \end{bmatrix}
+    \begin{bmatrix}
         \pd{f_1}{x_1} & \pd{f_1}{x_2} \\
         \pd{f_2}{x_1} & \pd{f_2}{x_2} \\
-    \end{pmatrix}
+    \end{bmatrix}
     =
-    \begin{pmatrix}
+    \begin{bmatrix}
         \pd{f_1}{f_1}\,\pd{f_1}{x_1} + \cancelto{0}{\pd{f_2}{f_1}\,\pd{f_2}{x_1}} &
         \pd{f_1}{f_1}\,\pd{f_1}{x_2} + \cancelto{0}{\pd{f_2}{f_1}\,\pd{f_2}{x_2}}
-    \end{pmatrix}
+    \end{bmatrix}
     =\\
-    \begin{pmatrix}
+    \begin{bmatrix}
         \pd{f_1}{x_1} & \pd{f_1}{x_2}
-    \end{pmatrix}
+    \end{bmatrix}
     \end{split}
 \end{equation*}
 with $\pdi{f_2}{f_1}=0$.
