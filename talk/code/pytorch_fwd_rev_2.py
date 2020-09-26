@@ -1,0 +1,7 @@
+>>> x = torch.rand(3, requires_grad=True)
+>>> a = torch.sin(x)
+tensor([0.7826, 0.2057, 0.5249], grad_fn=<SinBackward>)
+>>> b = torch.pow(a, 2.0)
+tensor([0.6125, 0.0423, 0.2755], grad_fn=<PowBackward0>)
+>>> c = torch.sum(b)
+tensor(0.9303, grad_fn=<SumBackward0>)

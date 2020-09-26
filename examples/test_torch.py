@@ -1,9 +1,18 @@
 """
-pytorch now has a jax-like functional grad API [1] as of v1.5
+pytorch now has a jax-like "functional" grad API [1] as of v1.5
     torch.autograd.functional
 in addition to
     # jax.nn and jax.experimental.stax
     torch.nn.functional
+
+However, torch.autograd.functional is in fact not functional at all functions
+do not return functions, e.g.
+torch.autograd.functional.hessian() does
+    hessian(func, x) -> x.grad
+whereas
+    jax.hessian(func) -> hess_func
+    jax.hessian(func)(x) -> \partial func / \partial x
+
 
 resources
     https://pytorch.org/tutorials/beginner/pytorch_with_examples.html#autograd
@@ -77,7 +86,7 @@ def grad(func):
         out = func(x)
         out.backward(wnp.ones_like(out))
         # x.grad is a Tensor of x.shape which holds the derivatives of func
-        # w.r.t each x[i,j,k,...] evaluated at x ... srsly?
+        # w.r.t each x[i,j,k,...] evaluated at x, got it?
         return x.grad
     return _gradfunc
 
@@ -92,7 +101,7 @@ def test():
 
     # Different grad APIs
     x1 = rand(3, requires_grad=True)
-    # boy is this stupid, this is how one copies an array in pytorch
+    # This is how one copies an array in pytorch
     x2 = x1.clone().detach()
     x2.requires_grad = True
     c1 = func(x1)

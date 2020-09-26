@@ -15,5 +15,6 @@
 *.snm
 *.vrb
 *.run.xml
+*.pyg
 __pycache__
 _minted-*

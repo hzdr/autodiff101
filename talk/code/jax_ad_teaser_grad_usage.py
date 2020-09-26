@@ -1,0 +1,10 @@
+>>> g = grad(f)
+
+>>> f(23.0)
+DeviceArray(4.49932, dtype=float32)
+>>> g(23.0)
+DeviceArray(5.666104, dtype=float32)
+>>> f(rand(3))
+DeviceArray(5.6858892, dtype=float32)
+>>> g(rand(3))
+DeviceArray([2.9560394, 6.178031 , 6.238125 ], dtype=float32)

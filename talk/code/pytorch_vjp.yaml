@@ -1,0 +1,11 @@
+- name: sigmoid(Tensor self) -> Tensor
+  self: sigmoid_backward(grad, result)
+
+- name: sign(Tensor self) -> Tensor
+  self: zeros_like(grad)
+
+- name: sin(Tensor self) -> Tensor
+  self: grad * self.cos().conj()
+
+- name: sinh(Tensor self) -> Tensor
+  self: grad * self.cosh().conj()

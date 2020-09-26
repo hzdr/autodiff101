@@ -1,6 +1,7 @@
 all:
 	# --shell-escape b/c of minted package
 	latexmk -pdf -pvc -pdflatex="pdflatex --shell-escape %O %S" talk.tex
+	##latexmk -pdf -pvc -pdflatex="xelatex --shell-escape %O %S" talk.tex
 
 clean: _restclean
 	latexmk -c

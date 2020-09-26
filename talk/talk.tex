@@ -1,6 +1,6 @@
 % vim:tw=150
 
-\pdfminorversion=5
+%%\pdfminorversion=5
 \documentclass[fleqn,10pt]{beamer}
 
 %----------------------------------------------------------------------------------%
@@ -10,8 +10,7 @@
 \usepackage{amsmath}
 %%\usepackage{footmisc}
 \usepackage{minted}
-\usepackage{cancel}
-
+%%\usepackage{cancel}
 \usepackage[
     backend=biber,
     maxbibnames=2,
@@ -23,11 +22,44 @@
     ]{biblatex}
 \addbibresource{lit.bib}
 
-
-
-\include{nc}
+%%\usepackage{fontspec}
+%%\setmonofont{Hack}
 
 %----------------------------------------------------------------------------------%
+
+% doesn't help, we still can't use the minted env inside overlays such as \uncover, muse use \inputminted ... hmpf
+%%\setminted{
+%%    beameroverlays=true,
+%%    }
+
+% https://tex.stackexchange.com/a/173854
+%
+%% fix the minted@colorbg environment
+\makeatletter
+\renewenvironment{minted@colorbg}[1]
+ {\def\minted@bgcol{#1}%
+  \noindent
+  \begin{lrbox}{\minted@bgbox}
+  \begin{minipage}{\linewidth-2\fboxsep}}
+ {\end{minipage}%
+  \end{lrbox}%
+  \setlength{\topsep}{\bigskipamount}% set the vertical space
+  \trivlist\item\relax % ensure going to a new line
+  \colorbox{\minted@bgcol}{\usebox{\minted@bgbox}}%
+  \endtrivlist % close the trivlist
+ }
+\makeatother
+
+\definecolor{mintedbg}{rgb}{0.95,0.95,0.95}
+\setminted{
+    bgcolor=mintedbg,
+    fontsize=\small,
+}
+
+
+%----------------------------------------------------------------------------------%
+
+\include{nc}
 
 %----------------------------------------------------------------------------------%
 
@@ -52,7 +84,7 @@
 \subtitle{Introduction to Automatic Differentiation with examples from \jax and \pytorch}
 
 \author{Steve Schmerler}
-\institute{FWCC/Helmholtz AI}
+\institute{HZDR/Helmholtz AI}
 
 \date{}
 
@@ -60,148 +92,6 @@
 
 \begin{document}
 
-\begin{frame}
-    \titlepage
-\end{frame}
-
-\begin{frame}
-    \frametitle{Motivation}
-    \begin{block}{Why derivatives?}
-        In DL: $f(\ve x) = L(\ve\theta),\quad f:\mathbb R^n\ra\mathbb R,\quad \min_{\ve x}f(\ve x)$ using SGD $\ra\nabla_{\ve x} f$
-    \end{block}
-    \begin{block}{How to get $\nabla f$}
-    \begin{itemize}
-        \item work out derivatives by hand (or really \soft{Mathematica}, \sympy, ...) and code them
-        \item call symbolic engine (\soft{sympy}, ...)
-        \item use finite diff approximation $[f(\ve x +\ve e_j\,h) - f(\ve x-\ve e_j h)]/2\,h$
-        \item AD: diff through mathematical operations in (arbitrary) source code using
-        \begin{itemize}
-            \item chain rule
-            \item pre-defined derivatives of elementary ("\emph{primitive}") functions
-        \end{itemize}
-        \item in NNs: "backprop" = reverse mode AD
-    \end{itemize}
-    \end{block}
-    \begin{columns}
-        \column{0.5\textwidth}
-            \centering
-            \includegraphics[width=0.8\textwidth]{pics/pytorch-logo-dark.png}
-        \column{0.5\textwidth}
-            \centering
-            \includegraphics{pics/jax_logo_250px.png}\\
-            \url{github.com/google/jax}
-    \end{columns}
-\end{frame}
-
-
-\begin{frame}[fragile]
-    \frametitle{Chain rule}
-    \begin{equation*}
-        f(x) = c(b(a(x)))
-    \end{equation*}
-
-    \begin{equation*}
-        f(x) = \ln(\sin^2(x))
-    \end{equation*}
-
-    \begin{minted}{python}
-    f = lambda x: np.log(np.power(np.sin(x), 2))
-    \end{minted}
-
-    \begin{equation*}
-        \td{f}{x} = \red{\td{c}{b}}\,\green{\td{b}{a}}\,\blue{\td{a}{x}}
-            = \red{\frac{1}{\sin^2(x)}}\,\green{2\,\sin(x)}\,\blue{\cos(x)}
-            = 2\,\frac{\cos(x)}{\sin(x)} = 2\,\cot(x)
-    \end{equation*}
-
-    \begin{minted}{python}
-    fprime = lambda x: 2 * np.cos(x) / np.sin(x)
-    \end{minted}
-\end{frame}
-
-
-\begin{frame}[fragile]
-    \frametitle{AD teaser: arbitrary code}
-    $f:\mathbb R^n\ra\mathbb R$
-    \begin{minted}{python}
-    def f(x):
-        if np.sum(x) > 1.234:
-            tmp = np.log(np.power(np.sin(x), 2))
-        else:
-            tmp = -10 * np.tan(x)
-        return np.sum(np.exp(tmp) * 2*np.pi)
-    \end{minted}
-    \vfill
-\end{frame}
-
-
-\begin{frame}[fragile]
-    \frametitle{AD teaser: arbitrary code}
-    \begin{minted}{python}
-    from jax import grad
-    import jax.numpy as np
-
-    def f(x):
-        if np.sum(x) > 1.234:
-            tmp = np.log(np.power(np.sin(x), 2))
-        else:
-            tmp = -10 * np.tan(x)
-        return np.sum(np.exp(tmp) * 2*np.pi)
-    \end{minted}
-    \vfill
-    \begin{minted}{python}
-    >>> g = grad(f)
-
-    # f: R -> R
-    >>> g(23)
-    DeviceArray(5.666104, dtype=float32)
-
-    # f: R^n -> R
-    >>> g(rand(3))
-    DeviceArray([6.025256, 5.720606, 6.281912], dtype=float32)
-    \end{minted}
-\end{frame}
-
-\begin{frame}
-    \frametitle{Chain rule for scalar $f$, AD terminology}
-    \begin{equation*}
-        f(x) = c(b(a(x)))
-    \end{equation*}
-    Computation graph: $x\ra a\ra b\ra c = f$
-    \begin{align*}
-        \td{f}{x}
-            &= \td{c}{b}\,\td{b}{a}\,\td{a}{x}&\\
-            &= \td{c}{b}\,\left(\td{b}{a}\,\left(\td{a}{x}\right)\right)& \text{forward: inputs $x$ \ra outputs $c$}\\
-            &= \left(\left(\td{c}{b}\right)\,\td{b}{a}\right)\,\td{a}{x}& \text{reverse: inputs $x$ \la outputs $c$}\\
-    \end{align*}
-\end{frame}
-
-
-\begin{frame}[fragile]
-    \frametitle{Jacobian}
-    \begin{equation*}
-        \ve f: \mathbb R^n \ra \mathbb R^m, \ve x\mapsto \ve f(\ve x) = \left[f_1(\ve x), \cdots, f_m(\ve x)\right]
-    \end{equation*}
-    \begin{equation*}
-        \ve f(\ve x) = \ve c(\ve b(\ve a(\ve x)))
-    \end{equation*}
-    For $n=m$:
-    \begin{minted}{python}
-    f = lambda x: np.log(np.power(np.sin(x), 2))
-    \end{minted}
-
-    \begin{equation*}
-        \ve f: \mathbb R^n \ra \mathbb R^m,\quad \ma J
-        = \pd{\ve f}{\ve x} =
-        \begin{bmatrix}
-            \pd{f_1}{x_1} & \cdots & \pd{f_1}{x_n}  \\
-            \vdots        & \ddots & \vdots         \\
-            \pd{f_m}{x_1} & \cdots & \pd{f_m}{x_n}
-        \end{bmatrix}
-        \in\mathbb R^{m\times n}
-    \end{equation*}
-    Note: $\pd{\ve x}{\ve x} = (\delta_{ij})$ is the identity matrix
-\end{frame}
 
 \newcommand{\edgecol}{
     \begin{equation*}
@@ -227,6 +117,124 @@
     \end{equation*}
 }
 
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}
+    \frametitle{Motivation}
+    \begin{block}{Why derivatives?}
+        In DL: $f(\ve x) = \mathcal L(\ve\theta),\quad f:\mathbb R^n\ra\mathbb R,\quad \min_{\ve x}f(\ve x)$ using SGD $\ra\nabla_{\ve x} f$
+    \end{block}
+    \uncover<2->{
+        \begin{block}{How to get $\nabla f$}
+            \begin{itemize}
+                \item work out derivatives by hand (or really \soft{Mathematica}, \sympy, ...) and code them
+                \item call symbolic engine (\soft{sympy}, ...)
+                \item use finite diff approximation $\pdi{f}{x_j}\approx[f(\ve x +\ve e_j\,h) - f(\ve x-\ve e_j h)]/2\,h$
+                \item AD: diff through mathematical operations in (arbitrary) source code using
+                \begin{itemize}
+                    \item chain rule
+                    \item pre-defined derivatives of elementary ("\emph{primitive}") functions
+                \end{itemize}
+                \item in NNs: "backprop" = reverse mode AD
+            \end{itemize}
+        \end{block}
+    }
+    \uncover<3->{
+        \begin{columns}
+            \column{0.5\textwidth}
+                \centering
+                \includegraphics[width=0.8\textwidth]{pics/pytorch-logo-dark.png}
+            \column{0.5\textwidth}
+                \centering
+                \includegraphics{pics/jax_logo_250px.png}\\
+                \url{github.com/google/jax}
+        \end{columns}
+    }
+\end{frame}
+
+
+\begin{frame}[fragile]
+    \frametitle{Chain rule}
+    Nested functions:
+    \begin{equation*}
+        f(x) = c(b(a(x)))\quad f = c \circ b \circ a
+    \end{equation*}
+    Computation graph:
+    \begin{align*}
+        x\ra a\ra b\ra c &= f\quad\text{"forward"}\\
+        x\la a\la b\la c &= f\quad\text{"backward/reverse"}
+    \end{align*}
+    Example:
+    \begin{equation*}
+        f(x) = \ln(\sin^2(x))
+    \end{equation*}
+    Code:
+    \begin{minted}{python}
+    f = lambda x: np.log(np.power(np.sin(x), 2))
+    \end{minted}
+    Derivative:
+    \begin{equation*}
+        \td{f}{x} = \red{\td{c}{b}}\,\green{\td{b}{a}}\,\blue{\td{a}{x}}
+            = \red{\frac{1}{\sin^2(x)}}\,\green{2\,\sin(x)}\,\blue{\cos(x)}
+            = 2\,\frac{\cos(x)}{\sin(x)} = 2\,\cot(x)
+    \end{equation*}
+    Code:
+    \begin{minted}{python}
+    fprime = lambda x: 2 * np.cos(x) / np.sin(x)
+    \end{minted}
+\end{frame}
+
+
+\begin{frame}
+    \frametitle{AD teaser: arbitrary code}
+    \only<1>{
+        \inputminted{python}{code/jax_ad_teaser_func.py}
+        \vfill
+    }
+    \only<2->{
+        \uncover<2->{
+            \inputminted{python}{code/jax_ad_teaser_func_w_imports.py}
+        }
+    }
+    \vspace{-0.3cm}
+    \uncover<3->{
+        \inputminted{python}{code/jax_ad_teaser_grad_usage.py}
+    }
+\end{frame}
+
+
+\begin{frame}[fragile]
+    \frametitle{Jacobian}
+    \begin{equation*}
+        \ve f: \mathbb R^n \ra \mathbb R^m, \ve x\mapsto \ve f(\ve x) = \left[f_1(\ve x) \cdots f_m(\ve x)\right]^\top
+    \end{equation*}
+    \begin{equation*}
+        \ve f(\ve x) = \ve c(\ve b(\ve a(\ve x)))
+    \end{equation*}
+    For $n=m$:
+    \begin{minted}{python}
+    f = lambda x: np.log(np.power(np.sin(x), 2))
+    \end{minted}
+    \vfill
+    \uncover<2->{
+        Jacobian:
+        \begin{equation*}
+            \ve f: \mathbb R^n \ra \mathbb R^m,\quad \ma J
+            = \pd{\ve f}{\ve x} =
+            \begin{bmatrix}
+                \pd{f_1}{x_1} & \cdots & \pd{f_1}{x_n}  \\
+                \vdots        & \ddots & \vdots         \\
+                \pd{f_m}{x_1} & \cdots & \pd{f_m}{x_n}
+            \end{bmatrix}
+            \in\mathbb R^{m\times n}
+        \end{equation*}
+        Note: $\pd{\ve x}{\ve x} = (\delta_{ij})$ is the identity matrix
+    }
+\end{frame}
+
 \begin{frame}
     \frametitle{Jacobian edge cases}
     $n=1$
@@ -246,91 +254,106 @@
     \begin{equation*}
         \ma J=\pd{\ve f}{\ve x} = \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}
     \end{equation*}
+    \vfill
     \uncover<2->{
-        Right-multiply with identity matrix $\pdi{\ve x}{\ve x}$
+        Right-multiply with identity matrix $\blue{\pdi{\ve x}{\ve x}}$
         \begin{equation*}
-            \pd{\ve f}{\ve x}\,\pd{\ve x}{\ve x} =
-            \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\,\pd{\ve x}{\ve x}
+            \pd{\ve f}{\ve x}\,\blue{\pd{\ve x}{\ve x}} =
+            \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\,
+                \blue{\pd{\ve x}{\ve x}}
         \end{equation*}
     }
+    \vfill
     \uncover<3->{
-        Right-multiply with one column $\pdi{\ve x}{x_j} = \ve e_j = [0,0,\cdots,1,\cdots, 0]$ selects $j$th column $\ma J[:,j]$, e.g. $x_j=x_1$
+        Right-multiply with one column $\pdi{\ve x}{x_j} = \ve e_j = [0,0,\cdots,1,\cdots, 0]^\top$ selects $j$th column $\ma J[:,j]$
     }
-    \uncover<4->{
-        {\small
-        \begin{equation*}
-            \pd{\ve f}{\ve x}\,\pd{\ve x}{x_1}=
-            \begin{bmatrix}
-                \pd{f_1}{x_1} & \pd{f_1}{x_2} \\
-                \pd{f_2}{x_1} & \pd{f_2}{x_2} \\
-            \end{bmatrix}
-            \begin{bmatrix}
-                \pd{x_1}{x_1} \\
-                \pd{x_2}{x_1} \\
-            \end{bmatrix}
-            =
-            \begin{bmatrix}
-                \pd{f_1}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_1}{x_2}\,\pd{x_2}{x_1}} \\
-                \pd{f_2}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_2}{x_2}\,\pd{x_2}{x_1}} \\
-            \end{bmatrix}
-            =
-            \begin{bmatrix}
-                \pd{f_1}{x_1} \\
-                \pd{f_2}{x_1} \\
-            \end{bmatrix}
-        \end{equation*}
-        }
-    }
+%%    \uncover<4->{
+%%        \vfill
+%%        $x_j=x_1: \pdi{x_1}{x_1}=1, \pdi{x_2}{x_1}=0$
+%%        {\small
+%%        \begin{equation*}
+%%            \pd{\ve f}{\ve x}\,\pd{\ve x}{x_1}=
+%%            \begin{bmatrix}
+%%                \pd{f_1}{x_1} & \pd{f_1}{x_2} \\
+%%                \pd{f_2}{x_1} & \pd{f_2}{x_2} \\
+%%            \end{bmatrix}
+%%            \begin{bmatrix}
+%%                \pd{x_1}{x_1} \\
+%%                \pd{x_2}{x_1} \\
+%%            \end{bmatrix}
+%%            =
+%%            \begin{bmatrix}
+%%                \pd{f_1}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_1}{x_2}\,\pd{x_2}{x_1}} \\
+%%                \pd{f_2}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_2}{x_2}\,\pd{x_2}{x_1}} \\
+%%            \end{bmatrix}
+%%            =
+%%            \begin{bmatrix}
+%%                \pd{f_1}{x_1} \\
+%%                \pd{f_2}{x_1} \\
+%%            \end{bmatrix}
+%%        \end{equation*}
+%%        }
+%%    }
 \end{frame}
 
 \begin{frame}
     \frametitle{Forward mode AD: Jacobian-vector products}
     \begin{align*}
-        \pd{\ve f}{\ve x}\,\pd{\ve x}{x_j} = \pd{\ve f}{\ve x}\,\ve e_j
-            &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\blue{\pd{\ve a}{\ve x}\,\ve e_j} \\
-            &= \pd{\ve c}{\ve b}\,\blue{\pd{\ve b}{\ve a}\,\ve v_j} \\
-            &= \blue{\pd{\ve c}{\ve b}\,\ve v_j'} \\
-            &= \ma J[:,j]
+        \pd{\ve f}{\ve x}\,\blue{\pd{\ve x}{x_j}} = \pd{\ve f}{\ve x}\,\blue{\ve e_j}
+            \uncover<2->{
+                &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\red{\pd{\ve a}{\ve x}}\,\blue{\ve e_j} \\
+            }
+            \uncover<3->{
+                &= \pd{\ve c}{\ve b}\,\red{\pd{\ve b}{\ve a}}\,\blue{\ve v_j} \\
+            }
+            \uncover<4->{
+                &= \red{\pd{\ve c}{\ve b}}\,\blue{\ve v_j'} \\
+            }
+            \uncover<5->{
+                &= \ma J[:,j]
+            }
     \end{align*}
-    \uncover<2->{
+    \uncover<6->{
         Augment each intermediate $\ve z(\cdot) = \ve a(\cdot), \ve b(\cdot), \ve c(\cdot)$ with
         \begin{equation*}
-            \co{jvp}: (\ve x, \ve v) \mapsto \left(\ve z(\ve x), \ma J_{\ve z}(\ve x)\,\ve v\right)
+            \text{JVP: }\red{\pd{\ve z}{*}}\,\blue{\ve v}
         \end{equation*}
     }
-    \uncover<3->{
+    \uncover<7->{
         {\small
         \begin{itemize}
-            \item $\ve z(\ve x)$ and JVP evaluated together along graph $x\ra a\ra b\ra c$
+            \item $\ve z(\cdot)$ and JVP evaluated together \emph{forward} along graph $x\ra a\ra b\ra c$
+            \item build graph on the fly
             \item define JVP for each primitive \numpy func $\ve z(\cdot)$
-            \item $\ma J_{\ve z}$ is \emph{never} build, diagonal for most \numpy funcs, JVP are simple expressions (e.g. element-wise ops on $\ve v$)
+            \item $\red{\pdi{\ve z}{*}}$ is \emph{never} build, diagonal for most \numpy funcs, JVPs are simple expressions (e.g. element-wise ops on
+                $\ve v$)
         \end{itemize}}
     }
 \end{frame}
 
-\begin{frame}[fragile]
-    \begin{minted}{python}
-import jax
-import jax.numpy as np
+\begin{frame}
+    \frametitle{Custom JVPs in \jax}
+    \only<1>{
+        \inputminted{python}{code/jax_defjvp_mysin_no_decorator.py}
+    }
+    \only<2->{
+        \uncover<2->{
+            \inputminted{python}{code/jax_defjvp_mysin.py}
+        }
+    }
+    \vspace{-0.3cm}
+    \uncover<3->{%
+        \inputminted{python}{code/jax_defjvp_with_jac.py}
+    }
+    \vspace{-0.3cm}
+    \uncover<4->{%
+        \inputminted{python}{code/jax_defjvp.py}
+    }
+\end{frame}
 
-@jax.custom_jvp
-def mysin(x):
-    return _my_awesome_sin(x)
-
-@mysin.defjvp
-def mysin_jvp(primals, tangents):
-    x, = primals
-    v, = tangents
-    return mysin(x), np.cos(x) * v
-
-@mysin.defjvp
-def mysin_jvp_with_jac(primals, tangents):
-    x, = primals
-    v, = tangents
-    ##jac = jax.jacobian(np.sin)(x)
-    jac = np.diag(np.cos(x))
-    return mysin(x), np.dot(jac, v)
-    \end{minted}
+\begin{frame}
+    \frametitle{Default JVPs for \numpy primitives in \jax}
+    \inputminted{python}{code/jax_lax_sin.py}
 \end{frame}
 
 \begin{frame}
@@ -338,25 +361,27 @@ def mysin_jvp_with_jac(primals, tangents):
     Apply all $\ve e_j$ \ra build $\ma J$ \emph{one column at a time}.
     Efficient for "tall" $\ma J$ with $m\gg n$, best: single forward pass for $\ve f(x): \mathbb R \ra \mathbb R^m$ ($n=1$, first column)
     \edgecol
-    Inefficient for "wide" $\ma J$ with $m\ll n$, worst: $n$ forward passes for $f(\ve x): \mathbb R^n \ra \mathbb R$ ($m=1$, first row)
-    \edgerow
-    Same as FD $[f(\ve x +\ve e_j\,h) - f(\ve x-\ve e_j h)]/2\,h$.
+    \uncover<2->{
+        Inefficient for "wide" $\ma J$ with $m\ll n$, worst: $n$ forward passes for $f(\ve x): \mathbb R^n \ra \mathbb R$ ($m=1$, first row)
+        \edgerow
+        Same as FD: $n$ times do $\pdi{f}{x_j}\approx[f(\ve x +\ve e_j\,h) - f(\ve x-\ve e_j h)]/2\,h$.
+    }
 \end{frame}
 
 \begin{frame}
     \frametitle{Reverse mode AD: vector-Jacobian products}
-    Multiplying from the left with $\pdi{\ve f}{f_i} = \ve e_i$
+    Multiplying from the left with one row $(\pdi{\ve f}{f_i})^\top = \ve e_i^\top$, extract $i$th row $\ma J[i,:]$
     \begin{align*}
-        \left(\pd{\ve f}{f_i}\right)^\top\,\pd{\ve f}{\ve x} = \ve e_i^\top\,\pd{\ve f}{\ve x}
-            &= \blue{\ve e_i^\top\,\pd{\ve c}{\ve b}}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
-            &= \blue{\ve v_i^\top\,\pd{\ve b}{\ve a}}\,\pd{\ve a}{\ve x}\\
-            &= \blue{\ve v_i'^\top\,\pd{\ve a}{\ve x}}\\
+        \blue{\left(\pd{\ve f}{f_i}\right)^\top}\,\pd{\ve f}{\ve x} = \blue{\ve e_i^\top}\,\pd{\ve f}{\ve x}
+            &= \blue{\ve e_i^\top}\,\red{\pd{\ve c}{\ve b}}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
+            &= \blue{\ve v_i^\top}\,\red{\pd{\ve b}{\ve a}}\,\pd{\ve a}{\ve x}\\
+            &= \blue{\ve v_i'^\top}\,\red{\pd{\ve a}{\ve x}}\\
             &= \ma J[i,:]
     \end{align*}
     \uncover<2->{
         Augment each intermediate $\ve z(\cdot) = \ve a(\cdot), \ve b(\cdot), \ve c(\cdot)$ with
         \begin{equation*}
-            \co{vjp}: (\ve x, \ve v) \mapsto \ve v\,\ma J_{\ve z}(\ve x)
+            \text{VJP: }\blue{\ve v^\top}\,\red{\pd{\ve z}{*}}
         \end{equation*}
     }
     \uncover<3->{
@@ -376,38 +401,25 @@ def mysin_jvp_with_jac(primals, tangents):
     }
 \end{frame}
 
+\begin{frame}
+    \frametitle{Reverse mode VJPs in \pytorch}
+    \url{https://github.com/pytorch/pytorch/blob/master/tools/autograd/derivatives.yaml}
+    \inputminted{yaml}{code/pytorch_vjp.yaml}
+    Scripts to generate C++ code (\co{libtorch.so}) and Python bindings.
+\end{frame}
+
 \begin{frame}[fragile]
     \frametitle{Properties of reverse mode AD}
     Apply all $\ve e_i$ \ra build $\ma J$ \emph{one row at a time}.
     Efficient for "wide" $\ma J$ with $m\ll n$, best: one single reverse pass for $f(\ve x): \mathbb R^n \ra \mathbb R$ ($m=1$, first row)
     \edgerow
-    DL: loss function $f(\ve x): \mathbb R^n\ra \mathbb R$
-    \begin{equation*}
-        f(\ve x) = c(\ve b(\ve a(\ve x)))
-    \end{equation*}
-    \begin{minted}{python}
-    f = lambda x: c(b(a(x)))
-    f = lambda x: np.sum(np.power(np.sin(x),2))
-    \end{minted}
-\end{frame}
-
-\begin{frame}[fragile]
-    \frametitle{Reverse mode VJPs in \pytorch}
-    \url{https://github.com/pytorch/pytorch/blob/master/tools/autograd/derivatives.yaml}
-    \begin{minted}{yaml}
-    - name: sigmoid(Tensor self) -> Tensor
-      self: sigmoid_backward(grad, result)
-
-    - name: sign(Tensor self) -> Tensor
-      self: zeros_like(grad, at::MemoryFormat::Preserve)
-
-    - name: sin(Tensor self) -> Tensor
-      self: grad * self.cos()
-
-    - name: sinh(Tensor self) -> Tensor
-      self: grad * self.cosh()
-    \end{minted}
-    Scripts to generate C++ code (\co{libtorch.so}) and Python bindings.
+    \uncover<2->{
+        DL: loss function $f(\ve x): \mathbb R^n\ra \mathbb R$
+        \begin{equation*}
+            f(\ve x) = c(\ve b(\ve a(\ve x)))
+        \end{equation*}
+        \inputminted{python}{code/scalar_field.py}
+    }
 \end{frame}
 
 \begin{frame}[fragile]
@@ -415,57 +427,58 @@ def mysin_jvp_with_jac(primals, tangents):
     \begin{equation*}
         f: \mathbb R^n\ra \mathbb R, \quad f(\ve x) = c(\ve b(\ve a(\ve x)))
     \end{equation*}
-    \begin{minted}{python}
-    c = torch.sum(torch.pow(torch.sin(x),2))
-    c = x.sin().pow(2.0).sum()
-    \end{minted}
-    Forward pass, tracing, observe \verb|grad_fn|
-    \begin{minted}{python}
-    >>> x = torch.rand(3, requires_grad=True)
-    >>> a = torch.sin(x)
-    tensor([0.7826, 0.2057, 0.5249], grad_fn=<SinBackward>)
-    >>> b = torch.pow(a, 2.0)
-    tensor([0.6125, 0.0423, 0.2755], grad_fn=<PowBackward0>)
-    >>> c = torch.sum(b)
-    tensor(0.9303, grad_fn=<SumBackward0>)
-    \end{minted}
-    Backward pass
-    \begin{minted}{python}
-    # same as torch.autograd.grad(c,x)
-    >>> c.backward()
-    >>> x.grad
-    tensor([0.9743, 0.4026, 0.8935])
-    \end{minted}
+    \inputminted[xleftmargin=.5cm]{python}{code/pytorch_fwd_rev_1.py}
+    \uncover<2->{
+        Forward pass, tracing, observe \texttt{grad\textunderscore fn}
+        \inputminted[xleftmargin=.5cm]{python}{code/pytorch_fwd_rev_2.py}
+    }
+    \uncover<3->{
+        Backward pass
+        \inputminted[xleftmargin=.5cm]{python}{code/pytorch_fwd_rev_3.py}
+    }
 \end{frame}
 
-\begin{frame}[fragile]
+\begin{frame}
     \frametitle{\pytorch: Reverse pass details}
     \begin{equation*}
         f: \mathbb R^n\ra \mathbb R, \quad f(\ve x) = c(\ve b(\ve a(\ve x)))
     \end{equation*}
     \begin{align*}
-        \pd{f}{f}\,\pd{f}{\ve x} = 1\,\pd{f}{\ve x}
-            &= \blue{1\,\pd{c}{\ve b}}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
-            &= \blue{\ve v_i^\top\,\pd{\ve b}{\ve a}}\,\pd{\ve a}{\ve x}\\
-            &= \blue{\ve v_i'^\top\,\pd{\ve a}{\ve x}}
+        \blue{\pd{f}{f}}\,\pd{f}{\ve x} = \blue{1}\,\pd{f}{\ve x}
+            &= \blue{1}\,            \red{\pd{c}{\ve b}}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
+            &= \blue{\ve v_i^\top}\, \red{\pd{\ve b}{\ve a}}\,\pd{\ve a}{\ve x}\\
+            &= \blue{\ve v_i'^\top}\,\red{\pd{\ve a}{\ve x}}
     \end{align*}
-    Default: initialize backward pass with $\pdi{f}{f}=1$
-    \begin{minted}{python}
-    >>> c.backward(torch.tensor(1.0))
-    \end{minted}
-    VJP: extract one row of Jacobian $\pd{\ve b}{\ve a}$
-    \begin{minted}{python}
-    >>> b = torch.pow(a, 2.0)
-    >>> v = torch.tensor([1.0, 0.0, 0.0])
-    >>> b.backward(v)
-    >>> x.grad
-    tensor([0.9619, 0.0000, 0.0000])
-    \end{minted}
+    \uncover<2->{
+        Default: initialize backward pass with $\pdi{f}{f}=1$
+        \inputminted[xleftmargin=.5cm]{python}{code/pytorch_rev_detail_1.py}
+    }
+    \uncover<3->{
+        VJP: extract one row of Jacobian $\pdi{\ve b}{\ve a}$
+        \inputminted[xleftmargin=.5cm]{python}{code/pytorch_rev_detail_2.py}
+    }
 \end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Higher order fun}
+    \inputminted{python}{code/higher_order_1.py}
+    \vspace{-0.3cm}
+    \uncover<2->{
+        \inputminted{python}{code/higher_order_2.py}
+    }
+    \uncover<3->{
+        $\ma J:=\partial f; \ma H = \partial^2 f = \partial(\partial f) = \partial(\nabla f)$ for $f:\mathbb R^n\ra\mathbb R$
+    }
+    \uncover<4->{
+        \inputminted{python}{code/higher_order_hessian.py}
+    }
+\end{frame}
+
 
 \begin{frame}[fragile]
     \frametitle{No free lunch}
     \begin{itemize}
+        \item restricted to \numpy/\pytorch-based code or need to wrap target package
         \item in-place ops (\co{a[i] *= 3}) can break AD, \pytorch: Tensor versioning system
         \begin{minted}{python}
     RuntimeError: one of the variables needed for gradient
@@ -491,5 +504,9 @@ def mysin_jvp_with_jac(primals, tangents):
     \printbibliography
 \end{frame}
 
+\begin{frame}
+    \frametitle{\texttt{jaxpr}}
+    \inputminted{python}{code/jaxpr.py}
+\end{frame}
 
 \end{document}
