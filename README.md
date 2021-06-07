@@ -2,14 +2,16 @@
 
 An introduction to Automatic Differentiation
 
-`notes/`: theory write-up about AD
+`theory/`: theory write-up about AD
 
 `talk/`: talk version of those notes
 
 `examples/`: AD examples using [autograd], [jax] and [pytorch]
 
-The talk was given for the first time on 2020-06-08 at the HZDR ML paper
-reading group meeting.
+The talk was given at the @hzdr <http://helmholtz.ai> local unit's
+Machine Learning journal club and at a @hzdr + @casus workshop on
+physics-informed neural networks, both organized by Nico Hoffmann (@nih23).
+
 
 [autograd]: https://github.com/HIPS/autograd
 [jax]: https://github.com/google/jax
