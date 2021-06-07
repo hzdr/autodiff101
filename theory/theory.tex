@@ -10,6 +10,7 @@
 \usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black,hyperfootnotes=true]{hyperref}
 \usepackage{cancel}
 \usepackage{xspace}
+\usepackage{cleveref}
 
 \usepackage[
     backend=biber,
@@ -29,9 +30,10 @@
 \section{Methods to evaluate derivatives}
 
 \begin{itemize}
-    \item work out derivs by hand (or really Mathematica, Maple, Maxima, ...)
+    \item work out analytic derivs by hand (or really Mathematica, Maple, Maxima, ...)
         and code them
-    \item call symbolic engines (e.g. \soft{sympy}) in your code
+    \item call symbolic engines (e.g. \soft{sympy}) in your code to get
+        analytic derivs
     \begin{itemize}
         \item special sub-type: manually construct computation graph by
             framework mini-language (TensorFlow, Theano) (e.g. \co{tf.while},
@@ -51,7 +53,7 @@
         \item can be applied to almost any code using arbitrary control flows
         \item in reverse mode uses code tracing ("taping") by one forward eval
             to construct computation graph
-        \item no "code swell": complex expressions that grow which each
+        \item no "code swell": complex analytic expressions that grow which each
             application of $\partial/\partial x_i$ in symbolic engines and that
             need an additional simplification step (Theano does this)
         \item limitations
@@ -65,7 +67,8 @@
                 when in-pace ops would break it
                 (\url{https://pytorch.org/docs/stable/notes/autograd.html#in-place-operations-with-autograd});
                 \jax and \pytorch have a jit, which should optimize
-                out-of-place modifications and copies away
+                out-of-place modifications and copies away if possible; still
+                both packages discourage usage of in-place mods
         \end{itemize}
     \end{itemize}
 \end{itemize}
@@ -78,12 +81,12 @@ First consider a scalar function of scalar inputs $f:\mathbb R\ra\mathbb R$
 \end{equation*}
 which gives the straight graph $x\ra a\ra b\ra c = f$. Forward = $x \ra c$ (inputs
 to outputs). Reverse = $x \la c$ (outputs to inputs).
-The derivative using the chain rule
+The derivative using the chain rule is given by
 \begin{align*}
     \td{f}{x}
         &= \td{c}{b}\,\td{b}{a}\,\td{a}{x}\\
         &= \td{c}{b}\,\left(\td{b}{a}\,\td{a}{x}\right)\quad\text{forward}\\
-        &= \left(\td{c}{b}\,\td{b}{a}\right)\,\td{a}{x}\quad\text{reverse}\\
+        &= \left(\td{c}{b}\,\td{b}{a}\right)\,\td{a}{x}\quad\text{reverse}
 \end{align*}
 
 \section{Forward and reverse AD (in \jax)}
@@ -99,6 +102,7 @@ R^m, \ve x\mapsto \ve f(\ve x)$. The Jacobian is
         \pd{f_m}{x_1} & \cdots & \pd{f_m}{x_n}
     \end{bmatrix}
     \in\mathbb R^{m\times n}
+    \eqdot
 \end{equation*}
 One edge case is
 \begin{equation*}
@@ -128,8 +132,8 @@ Vectorized \numpy functions $f$ are a bit of a special case, since depending on
 input, they are either $f(x):\mathbb R\ra\mathbb R$ when given a scalar or $\ve
 f(\ve x):\mathbb R^n\ra\mathbb R^n$ when given a vector, but never $f(\ve x):
 \mathbb R^n \ra \mathbb R$ (i.e. the gradient $\nabla f(\ve x)$ is not defined
-for them). Also $f_i\equiv f$. Since each $f_i$ is a function of only the $x_i$
-it is applied to, the Jacobian is always diagonal, which is a very neat
+for them). Importantly we have $f_i\equiv f$: each $f_i$ is a function of only the $x_i$
+it is applied to. Therefore, the Jacobian is always diagonal, which is a very neat
 property that we'll use later.
 
 \subsection{Forward}
@@ -180,7 +184,8 @@ $x_j = x_1$
 if we note that $\pdi{x_2}{x_1}=0$ and that formally by the chain rule
 \begin{gather*}
     \pd{f_1}{x_1}\,\pd{x_1}{x_1} = \pd{f_1}{x_1} \\
-    \pd{f_2}{x_1}\,\pd{x_1}{x_1} = \pd{f_2}{x_1} \\
+    \pd{f_2}{x_1}\,\pd{x_1}{x_1} = \pd{f_2}{x_1}
+    \eqdot
 \end{gather*}
 Now, of course we don't want to build up Jacobians. Also we haven't done any AD
 yet, have we? The trick is to evaluate the expression by using ($i$)
@@ -190,38 +195,46 @@ $\ve b(\cdot)$, $\ve c(\cdot)$)%
 or \co{sqrt} that we can't or won't represent in terms of even more basic
 functions.}
 and ($ii$) by repeated application of a
-\blue{\emph{Jacobian vector product (JVP)}}. So, we initialize with $\ve e_j$
+\emph{\red{Jacobian} \blue{vector} product (JVP)}. So, we initialize with $\ve e_j$
 and apply JVPs as we go.
 \begin{align*}
-    \pd{\ve f}{\ve x}\,\pd{\ve x}{x_j} = \pd{\ve f}{\ve x}\,\ve e_j
-        &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\blue{\pd{\ve a}{\ve x}\,\ve e_j} \\
-        &= \pd{\ve c}{\ve b}\,\blue{\pd{\ve b}{\ve a}\,\ve v_j} \\
-        &= \blue{\pd{\ve c}{\ve b}\,\ve v_j'} \\
-        &= \ma J[:,j]
+    \pd{\ve f}{\ve x}\,\blue{\pd{\ve x}{x_j}} = \pd{\ve f}{\ve x}\,\blue{\ve e_j}
+            &= \pd{\ve c}{\ve b}\,\pd{\ve b}{\ve a}\,\red{\pd{\ve a}{\ve x}}\,\blue{\ve e_j} \\
+            &= \pd{\ve c}{\ve b}\,\red{\pd{\ve b}{\ve a}}\,\blue{\ve v_j} \\
+            &= \red{\pd{\ve c}{\ve b}}\,\blue{\ve v_j'} \\
+            &= \ma J[:,j]
 \end{align*}
+%
 Now what is a JVP? We see that in order to evaluate the chain rule, each
-primitive function needs to know ($i$) how it would evaluate its own derivative
-(Jacobian, e.g. $\pdi{\ve b}{\ve a}$) w.r.t. its inputs and ($ii$) how to
-multiply that with a given vector. By doing ($ii$), we can always initialize
-the process by $\ve e_j$ and then multiply forward. Cool! Now how do we do
-$(i)$? The answer is that we don't (almost). We agument each primitive
-function $\ve z(\cdot) = \ve a(\cdot), \ve b(\cdot), \ve c(\cdot)$ with a JVP
-function that maps a
-so-called \emph{primal}-\emph{tangent} pair $(\ve x, \ve v)$ to the function at
-$\ve x$ and its JVP with $\ve v$.
+primitive function $\ve z(\cdot) = \ve a(\cdot), \ve b(\cdot), \ve c(\cdot)$
+needs to know ($i$) how it would evaluate its own derivative (Jacobian
+$\pdi{\ve z}{\ve{\tau}}$, e.g. $\pdi{\ve b}{\ve a}$) w.r.t. its inputs $\ve{\tau}$ and ($ii$)
+how to right-multiply that with a given vector $\ve v$. By doing ($ii$), we can
+always initialize the process by $\ve e_j$ and then multiply forward (recall
+that forward means $x\ra c$, i.e. from inputs to outputs). Cool! Now how do we
+do $(i)$? The answer is that we don't, in the sense that we don't need to
+instantiate Jacobians. Instead, we \emph{augment} each primitive function $\ve
+z(\cdot)$ with a JVP such that we map the so-called
+\emph{primal}-\emph{tangent} pair $(\ve x, \ve v)$ to the function at $\ve x$
+and its JVP with $\ve v$.
+%
 \begin{equation*}
-    \co{jvp}: (\ve x, \ve v) \mapsto \left(\ve a(\ve x), \ma J_{\ve z}(\ve x)\,\ve v\right)
+    (\ve x, \ve v) \mapsto \left(\ve z(\ve x), \red{\pd{\ve z}{\ve\tau}}\,\blue{\ve v}\right)
 \end{equation*}
+%
 This is very roughly how \jax works inside. Each primitive function has an
-associated JVP function defined by using \co{jax.defjvp} which gets called when
-evaluating the chain rule. At each step through the chain rule along the comp
-graph, we evaluate the function's value $\ve z(\ve x)$ \emph{and} its JVP $\ma
-J_{\ve z}(\ve x)\,\ve v$ together in lock step. Now, \textbf{the most important trick
-is that the intermediate Jacobians are never explicitly build}. The JVP
-function only has to return the \emph{result} of $\ma J_{\ve z}(\ve x)\,\ve v$.
-Especially, for \numpy's vectorized functions, all Jacobians are diagonal,
-which makes implementing $\ma J_{\ve z}(\ve x)\,\ve v$ simple and efficient. In most
-cases, we get away with element-wise operations on \ve v.
+associated JVP function defined by using \co{jax.defjvp}%
+\footnote{The name of this and details of its usage may vary across \jax
+versions.} %
+which gets called when evaluating the chain rule. At each step through the
+chain rule along the comp graph, we evaluate the function's value $\ve z(\ve
+x)$ \emph{and} its JVP $\red{\pdi{\ve z}{\ve{\tau}}}\,\blue{\ve v}$ together in lock step.
+Now, \textbf{the most important trick is that the intermediate Jacobians are
+never explicitly build}. The JVP function only has to return the \emph{result}
+of $\pdi{\ve z}{\ve{\tau}}\,\ve v$. Especially, for \numpy's vectorized
+functions, all Jacobians are diagonal, which makes implementing $\pdi{\ve
+z}{\ve{\tau}}\,\ve v$ simple and efficient. In most cases, we get away with
+element-wise operations on \ve v.
 
 Side note: in the AD literature, applying JVPs is also called
 "push-forward" of the vector (here $\ve e_j$) from inputs to outputs ($\ve x\ra\ve c$).
@@ -236,7 +249,6 @@ $\nabla f(\ve x)$) is inefficient in forward mode since we need $n$ passes to
 calculate each $\pdi{f}{x_j}$. This has thus similar complexity as finite
 differences, where we also repeat $n$ times something like $(f(\ve x +\ve e_j\,h) - f(\ve
 x-\ve e_j h))/2\,h$.
-
 
 \subsection{Reverse}
 
@@ -268,12 +280,12 @@ $i$-th row $\ma J[i,:]$ by multiplying from the left with $\pdi{\ve f}{f_i} =
 \end{equation*}
 with $\pdi{f_2}{f_1}=0$.
 In the code, we initialize with $\ve e_i$ and this time apply
-\blue{\emph{vector Jacobian products (VJPs)}} as we go.
+\emph{\blue{vector} \red{Jacobian} products (VJPs)} as we go.
 \begin{align*}
-    \left(\pd{\ve f}{f_i}\right)^\top\,\pd{\ve f}{\ve x} = \ve e_i^\top\,\pd{\ve f}{\ve x}
-        &= \blue{\ve e_i^\top\,\pd{\ve c}{\ve b}}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
-        &= \blue{\ve v_i^\top\,\pd{\ve b}{\ve a}}\,\pd{\ve a}{\ve x}\\
-        &= \blue{\ve v_i'^\top\,\pd{\ve a}{\ve x}}\\
+    \blue{\left(\pd{\ve f}{f_i}\right)^\top}\,\pd{\ve f}{\ve x} = \blue{\ve e_i^\top}\,\pd{\ve f}{\ve x}
+        &= \blue{\ve e_i^\top}\,\red{\pd{\ve c}{\ve b}}\,\pd{\ve b}{\ve a}\,\pd{\ve a}{\ve x}\\
+        &= \blue{\ve v_i^\top}\,\red{\pd{\ve b}{\ve a}}\,\pd{\ve a}{\ve x}\\
+        &= \blue{\ve v_i'^\top}\,\red{\pd{\ve a}{\ve x}}\\
         &= \ma J[i,:]
 \end{align*}
 Again, we can apply all possible $\ve e_i$ to build up the full $\ma J$, this
@@ -378,6 +390,9 @@ is indeed \co{1.0} as in $\pdi{f}{f}=1$.
 
 \section{Comparison of functional diff implementations}
 
+A quick comparison of diff implementations (AD: \jax, \autograd; numerical:
+\scipy, \numdifftools), see \cref{t:diff_codes}.
+
 \begin{table}[h]
     \begin{tabular}{lllll}
         \toprule
@@ -393,6 +408,7 @@ is indeed \co{1.0} as in $\pdi{f}{f}=1$.
              \ts{a} \co{M=scipy.misc}, \co{O=scipy.optimize}, \co{N=optimize.\char`_numdiff}\\
              \ts{b} for vectorized \numpy functions where the Jacobian is diagonal:
              \co{diag(jacobian(sin)(x)) == cos(x)}}
+    \label{t:diff_codes}
 \end{table}
 
 \section{JVPs (forward) and VJPs (reverse) in \autograd, \jax and \pytorch}
@@ -409,24 +425,29 @@ but \autograd is mostly only reverse mode. \numpy API definitions in
 \subsection{\jax}
 
 \numpy primitives are defined (re-implemented using the LAX linalg layer) in
-\url{https://github.com/google/jax/blob/master/jax/lax/lax.py} with a lot of
-\co{defjvp*}, one for each primitive, i.e. only forward mode. The \numpy API
-def is in
-\url{https://github.com/google/jax/blob/master/jax/numpy/lax_numpy.py}. They
-don't define explicit VJPs (for reverse mode), instead they use the forward
-trace, which has to be done anyway, and then run that backwards, transposing
-the JVP operations (recall $\ve e_i^\top\,\ma J = \ma J^\top\,\ve e_i$) to get
-a reverse operation, as far as I read the docs. Haven't checked the code.
+\url{https://github.com/google/jax/blob/master/jax/_src/lax/lax.py} with a lot of
+\co{defjvp*}, one for each primitive, i.e. only forward mode.
+
+\inputminted{python}{../talk/code/jax_lax_sin.py}
+
+The \numpy API def is in
+\url{https://github.com/google/jax/blob/master/jax/_src/numpy}. They don't
+define explicit VJPs (for reverse mode), instead they use the forward trace,
+which has to be done anyway, and then run that backwards, transposing the JVP
+operations (recall $\ve e_i^\top\,\ma J = \ma J^\top\,\ve e_i$) to get a
+reverse operation, as far as I read the docs. Haven't checked the code.
 
 \subsection{\pytorch}
 
-This is wild. They use VJPs and only VJPs (as in \autograd). But they don't
-define them at the python level using some kind of \co{defvjp}. Instead, they
-have a yaml file (not kidding)
+\pytorch is not a general-purpose AD library. It's AD system is designed
+specifically for the use case $f: \mathbb R^n\ra\mathbb R$, i.e. the loss
+function during NN training, where $n$ is large. They use VJPs (as in
+\autograd). But they don't define them at the python level using some kind of
+\co{defvjp}. Instead, they have a yaml file (!)
 \url{https://github.com/pytorch/pytorch/blob/master/tools/autograd/derivatives.yaml}
 with Python-ish type-hint like pseudo code, which defines the VJP for each
-torch primitive function. Then there are a bunch of scripts which generate C++
-code for each function's VJP and python bindings.
+\texttt{torch} primitive function. Then scripts are used to generate C++ code
+for each function's VJP and python bindings (e.g. in \texttt{libtorch.so}).
 
 
 \section{Tracing and compilation}
@@ -462,11 +483,11 @@ It uses \tf's XLA compiler, which uses LLVM, to compile for CPU and GPU targets.
 
 \subsection{\pytorch}
 
-The result of \pytorch's tracing is some representation of the comp graph
-(TODO: check that, at the moment not more info on this). \pytorch's jit creates
-something called TorchScript, which is a serialized version of the graph. That
-can be exported to disk, loaded into C++ using the libtorch C++ API and
-executed as a C++ program.
+The result of \pytorch's tracing is a representation of the comp graph (TODO:
+find out more details). \pytorch's \texttt{jit} creates something called
+TorchScript, which is a serialized version of the graph. That can be exported
+to disk, loaded into C++ using the libtorch C++ API and executed as a C++
+program.
 
 \nocite{*}
 \printbibliography

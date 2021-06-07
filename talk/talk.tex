@@ -316,7 +316,7 @@
     \uncover<6->{
         Augment each intermediate $\ve z(\cdot) = \ve a(\cdot), \ve b(\cdot), \ve c(\cdot)$ with
         \begin{equation*}
-            \text{JVP: }\red{\pd{\ve z}{*}}\,\blue{\ve v}
+            \text{JVP: }\red{\pd{\ve z}{\ve\tau}}\,\blue{\ve v}
         \end{equation*}
     }
     \uncover<7->{
@@ -325,7 +325,7 @@
             \item $\ve z(\cdot)$ and JVP evaluated together \emph{forward} along graph $x\ra a\ra b\ra c$
             \item build graph on the fly
             \item define JVP for each primitive \numpy func $\ve z(\cdot)$
-            \item $\red{\pdi{\ve z}{*}}$ is \emph{never} build, diagonal for most \numpy funcs, JVPs are simple expressions (e.g. element-wise ops on
+            \item $\red{\pdi{\ve z}{\ve\tau}}$ is \emph{never} build, diagonal for most \numpy funcs, JVPs are simple expressions (e.g. element-wise ops on
                 $\ve v$)
         \end{itemize}}
     }
@@ -381,7 +381,7 @@
     \uncover<2->{
         Augment each intermediate $\ve z(\cdot) = \ve a(\cdot), \ve b(\cdot), \ve c(\cdot)$ with
         \begin{equation*}
-            \text{VJP: }\blue{\ve v^\top}\,\red{\pd{\ve z}{*}}
+            \text{VJP: }\blue{\ve v^\top}\,\red{\pd{\ve z}{\ve\tau}}
         \end{equation*}
     }
     \uncover<3->{
