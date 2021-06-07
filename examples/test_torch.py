@@ -1,17 +1,33 @@
 """
-pytorch now has a jax-like "functional" grad API [1] as of v1.5
+pytorch has a "functional" grad API [1,2] as of v1.5
+
     torch.autograd.functional
+
 in addition to
+
     # jax.nn and jax.experimental.stax
     torch.nn.functional
 
-However, torch.autograd.functional is in fact not functional at all functions
-do not return functions, e.g.
-torch.autograd.functional.hessian() does
-    hessian(func, x) -> x.grad
+However, unlike jax, torch.autograd.functional's functions don't return
+functions. Also one has to supply the function to differentiate *and* the
+input.
+
+    torch.autograd.functional.hessian(func, x) -> Tensor
+
+which is the same API we find with torch.autograd.grad():
+
+    x=torch.rand(3)
+    x.requires_grad_()
+    a=x.sin().sum()
+    torch.autograd.grad(a, x) -> x.grad
+    # same as
+    #   a.backward()
+    #   x.grad
+
 whereas
+
     jax.hessian(func) -> hess_func
-    jax.hessian(func)(x) -> \partial func / \partial x
+    jax.hessian(func)(x) -> hess_func(x) -> DeviceArray
 
 
 resources
@@ -20,7 +36,9 @@ resources
     https://pytorch.org/docs/stable/autograd.html
     https://pytorch.org/docs/stable/notes/autograd.html
 
+
 [1] https://github.com/pytorch/pytorch/commit/1f4a4aaf643b70ebcb40f388ae5226a41ca57d9b
+[2] https://pytorch.org/docs/stable/autograd.html#functional-higher-level-api
 """
 
 import torch
@@ -53,8 +71,7 @@ rand = torch.rand
 
 
 #-----------------------------------------------------------------------------
-# poor man's functional API (pytorch 1.4, 1.5) for testing against jax and
-# autograd
+# poor man's jax-like functional API
 #-----------------------------------------------------------------------------
 
 def _wrap_input(func):
