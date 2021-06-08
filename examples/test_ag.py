@@ -9,7 +9,8 @@ inside.
 
 from autograd import grad, elementwise_grad, jacobian
 from autograd.extend import primitive, defvjp
-import autograd.numpy as wnp
+import autograd.numpy as anp
+
 import numpy as np
 
 rand = np.random.rand
@@ -33,40 +34,40 @@ def pow2_vjp_with_jac(ans, x):
     if x.shape == ():
         return lambda v: v * 2*x
     else:
-        ##jac = jacobian(lambda x: wnp.power(x,2))(x)
-        jac = wnp.diag(2*x)
-        return lambda v: wnp.dot(v, jac)
+        ##jac = jacobian(lambda x: anp.power(x,2))(x)
+        jac = anp.diag(2*x)
+        return lambda v: anp.dot(v, jac)
 
 
 @primitive
 def mysin(x):
-    return wnp.sin(x)
+    return anp.sin(x)
 
 
 def mysin_vjp(ans, x):
-    return lambda v: v * wnp.cos(x)
+    return lambda v: v * anp.cos(x)
 
 
 @primitive
 def mysum(x):
-    return wnp.sum(x)
+    return anp.sum(x)
 
 
 def mysum_vjp(ans, x):
     """
     See autograd/numpy/numpy_vjps.py -> grad_np_sum() for how they do it. The
     returned v's shape must be corrected sometimes. Here we explicitly write
-    the VJP using jacobian(wnp.sum)(x) == wnp.ones_like(x) which is always
+    the VJP using jacobian(anp.sum)(x) == anp.ones_like(x) which is always
     correct. See test_jax.py:mysum_jvp() for more comments. Note that in
     contrast to JAX, here v is *always* scalar, a fact that we can't explain
     ATM. As JAX is autograd 2.0, we consider this an autograd quirk and leave
     it be.
     """
-    return lambda v: wnp.dot(v, wnp.ones_like(x))
+    return lambda v: anp.dot(v, anp.ones_like(x))
 
 
 def func(x):
-    return wnp.sum(wnp.power(wnp.sin(x),2))
+    return anp.sum(anp.power(anp.sin(x),2))
 
 
 def func_with_vjp(x):
@@ -76,15 +77,15 @@ def func_with_vjp(x):
 def test():
     # scalar derivative
     # df/dx : R -> R
-    assert wnp.allclose(grad(wnp.sin)(1.234), wnp.cos(1.234))
+    assert anp.allclose(grad(anp.sin)(1.234), anp.cos(1.234))
 
     x = rand(10)*5 - 5
-    assert wnp.allclose(jacobian(wnp.sin)(x), wnp.diag(wnp.cos(x)))
+    assert anp.allclose(jacobian(anp.sin)(x), anp.diag(anp.cos(x)))
 
     # elementwise_grad(f) : R^n -> R^n (of f: R^n -> R^n), returns the column sum of
     # the Jacobian
-    assert wnp.allclose(elementwise_grad(wnp.sin)(x), wnp.cos(x))
-    assert wnp.allclose(jacobian(wnp.sin)(x).sum(axis=0), wnp.cos(x))
+    assert anp.allclose(elementwise_grad(anp.sin)(x), anp.cos(x))
+    assert anp.allclose(jacobian(anp.sin)(x).sum(axis=0), anp.cos(x))
 
 
     defvjp(mysin, mysin_vjp)
@@ -92,19 +93,19 @@ def test():
     for p2_jvp in [pow2_vjp, pow2_vjp_with_jac]:
         defvjp(pow2, p2_jvp)
 
-        assert wnp.allclose([func(xi)          for xi in x],
+        assert anp.allclose([func(xi)          for xi in x],
                             [func_with_vjp(xi) for xi in x])
 
-        assert wnp.allclose(func(x),
+        assert anp.allclose(func(x),
                             func_with_vjp(x))
 
-        assert wnp.allclose([grad(func)(xi)          for xi in x],
+        assert anp.allclose([grad(func)(xi)          for xi in x],
                             [grad(func_with_vjp)(xi) for xi in x])
 
-        assert wnp.allclose(elementwise_grad(func)(x),
+        assert anp.allclose(elementwise_grad(func)(x),
                             elementwise_grad(func_with_vjp)(x))
 
-        assert wnp.allclose(grad(func)(x),
+        assert anp.allclose(grad(func)(x),
                             grad(func_with_vjp)(x))
 
 

@@ -42,7 +42,6 @@ resources
 """
 
 import torch
-wnp = torch
 import numpy as np
 
 rand = torch.rand
@@ -89,19 +88,19 @@ def _wrap_input(func):
 
 @_wrap_input
 def cos(x):
-    return wnp.cos(x)
+    return torch.cos(x)
 
 
 @_wrap_input
 def func(x):
-    return wnp.sin(x).pow(2.0).sum()
+    return torch.sin(x).pow(2.0).sum()
 
 
 def grad(func):
     @_wrap_input
     def _gradfunc(x):
         out = func(x)
-        out.backward(wnp.ones_like(out))
+        out.backward(torch.ones_like(out))
         # x.grad is a Tensor of x.shape which holds the derivatives of func
         # w.r.t each x[i,j,k,...] evaluated at x, got it?
         return x.grad
@@ -111,9 +110,9 @@ elementwise_grad = grad
 
 
 def test():
-    assert wnp.allclose(grad(wnp.sin)(1.234), cos(1.234))
+    assert torch.allclose(grad(torch.sin)(1.234), cos(1.234))
     x = rand(10)*5 - 5
-    assert wnp.allclose(elementwise_grad(wnp.sin)(x), wnp.cos(x))
+    assert torch.allclose(elementwise_grad(torch.sin)(x), torch.cos(x))
     assert grad(func)(x).shape == x.shape
 
     # Different grad APIs
