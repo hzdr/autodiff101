@@ -1,7 +1,11 @@
-all:
-	# --shell-escape b/c of minted package
-	latexmk -pdf -pvc -pdflatex="pdflatex --shell-escape %O %S" talk.tex
-	##latexmk -pdf -pvc -pdflatex="xelatex --shell-escape %O %S" talk.tex
+# --shell-escape b/c of minted package
+opts="-pdf -pdflatex='pdflatex --shell-escape %O %S'"
+
+all: main.tex
+	latexmk "$(opts)" $<
+
+preview: main.tex
+	latexmk -pvc "$(opts)" $<
 
 clean: _restclean
 	latexmk -c
@@ -11,4 +15,4 @@ allclean: _restclean
 
 _restclean:
 	rm -rf _minted-*
-	rm -f *.bak *.bbl *.run.xml *.nav *.pyg *.vrb *.snm
+	rm -f *.bak *.bbl *.run.xml *.nav *.snm *.vrb
