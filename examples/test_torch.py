@@ -14,7 +14,14 @@ input.
 
     torch.autograd.functional.hessian(func, x) -> Tensor
 
-which is the same API we find with torch.autograd.grad():
+whereas
+
+    jax.hessian(func) -> hess_func
+    jax.hessian(func)(x) -> hess_func(x) -> DeviceArray
+
+
+Note that this torch API pattern is similar to what we find with
+torch.autograd.grad():
 
     x=torch.rand(3)
     x.requires_grad_()
@@ -24,10 +31,7 @@ which is the same API we find with torch.autograd.grad():
     #   a.backward()
     #   x.grad
 
-whereas
-
-    jax.hessian(func) -> hess_func
-    jax.hessian(func)(x) -> hess_func(x) -> DeviceArray
+only that here the first argument is a Tensor and not a function.
 
 
 resources
