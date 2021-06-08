@@ -13,6 +13,16 @@ Machine Learning journal club and at a @hzdr + @casus workshop on
 physics-informed neural networks, both organized by Nico Hoffmann (@nih23).
 
 
+# PDFs
+
+Download CI-built PDF files:
+
+* from the Actions tab after each CI run (on `push`): All workflows > Build
+  and release PDF > click latest Workflow run > Artifacts > download `.zip`
+  file
+* from the Releases page directly for each `git tag`
+
+
 [autograd]: https://github.com/HIPS/autograd
 [jax]: https://github.com/google/jax
 [pytorch]: https://github.com/pytorch/pytorch
