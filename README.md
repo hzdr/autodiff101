@@ -3,10 +3,10 @@
 An introduction to Automatic Differentiation.
 
 
-`theory/`: AD background theory, introducing the concept of forward and
-reverse mode plus Jacobian-vector / vector-Jacobian products. To go deeper,
-make sure to check out the excellent [JAX autodiff
-cookbook][jax_autodiff_cookbook].
+`theory/`: AD background theory, introducing the concept of forward and reverse
+mode plus Jacobian-vector / vector-Jacobian products. To go deeper, make sure
+to check out the excellent [JAX autodiff cookbook][jax_autodiff_cookbook] as
+well as @mattjj's [talk on autograd][mattjj_talk].
 
 `talk/`: Talk version of those notes. The talk was given at the @hzdr
 <http://helmholtz.ai> local unit's Machine Learning journal club and at a @hzdr
@@ -34,3 +34,4 @@ Download CI-built PDF files:
 [jax]: https://github.com/google/jax
 [pytorch]: https://github.com/pytorch/pytorch
 [jax_autodiff_cookbook]: https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html
+[mattjj_talk]: http://videolectures.net/deeplearning2017_johnson_automatic_differentiation
