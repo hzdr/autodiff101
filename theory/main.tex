@@ -344,7 +344,7 @@ single reverse pass (i.e. backprop).
 
 \subsection{\jax, \autograd}
 
-Both are designed to be a functional, like \numpy itself. \co{grad()} returns a
+Both are designed to be functional, like \numpy itself. \co{grad()} returns a
 function object that evaluates $\nabla f(\ve x)$.
 %
 \ipmpy{../talk/code/jax_ad_teaser_grad_usage.py}
@@ -354,8 +354,10 @@ function object that evaluates $\nabla f(\ve x)$.
 
 \subsection{\pytorch}
 %
-\pytorch is not functional, it thinks in terms of \co{torch.Tensor} objects, so
-when using our little example from above, now written in \pytorch syntax
+\pytorch is not functional\footnote{However, there is the experimental
+\co{torch.autograd.functional} (checked: v1.8.1).}, it thinks in terms of
+\co{torch.Tensor} objects, so when using our little example from above, now
+written in \pytorch syntax
 %
 \ipmpy{../talk/code/pytorch_fwd_rev_1.py}
 %
