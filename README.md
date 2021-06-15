@@ -1,9 +1,7 @@
-# Autodiff 101
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/hzdr/autodiff101?label=latest%20release&style=flat-square)][releases]
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/hzdr/autodiff101/Build%20and%20release%20PDF?label=Build%20and%20release%20PDF&style=flat-square)][actions]
 
-![](https://github.com/hzdr/autodiff101/actions/workflows/pdf.yml/badge.svg)
-
-An introduction to Automatic Differentiation.
-
+# An introduction to Automatic Differentiation
 
 `theory/`: AD background theory, introducing the concept of forward and reverse
 mode plus Jacobian-vector / vector-Jacobian products. To go deeper, make sure
@@ -20,16 +18,8 @@ focus mostly on how to define custom derivatives in jax (and autograd). This
 has helped to understand how Jacobian-vector products actually work. More
 examples to come!
 
-
-
-# PDFs
-
-Download CI-built PDF files:
-
-* from the Actions tab after each CI run (on `push`): All workflows > Build
-  and release PDF > click latest Workflow run > Artifacts > download `.zip`
-  file
-* from the Releases page directly for each `git tag`
+Download `talk` and `theory` PDF files from the [Releases page][releases] or
+the latest [CI run][actions].
 
 
 [autograd]: https://github.com/HIPS/autograd
@@ -37,3 +27,5 @@ Download CI-built PDF files:
 [pytorch]: https://github.com/pytorch/pytorch
 [jax_autodiff_cookbook]: https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html
 [mattjj_talk]: http://videolectures.net/deeplearning2017_johnson_automatic_differentiation
+[releases]: https://github.com/hzdr/autodiff101/releases/latest
+[actions]: https://github.com/hzdr/autodiff101/actions
