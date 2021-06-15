@@ -1,5 +1,7 @@
 # Autodiff 101
 
+![](https://github.com/hzdr/autodiff101/actions/workflows/pdf.yml/badge.svg)
+
 An introduction to Automatic Differentiation.
 
 
