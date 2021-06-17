@@ -19,7 +19,7 @@ has helped to understand how Jacobian-vector products actually work. More
 examples to come!
 
 Download `talk` and `theory` PDF files from the [Releases page][releases] or
-the latest [CI run][actions].
+the latest [CI run][actions]. You can also click the badges above.
 
 
 [autograd]: https://github.com/HIPS/autograd
