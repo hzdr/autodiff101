@@ -19,7 +19,8 @@ has helped to understand how Jacobian-vector products actually work. More
 examples to come!
 
 Download `talk` and `theory` PDF files from the [Releases page][releases] or
-the latest [CI run][actions]. You can also click the badges above.
+the latest [CI run][actions]. You can also click the badges above. The talk is
+also [available via figshare][talk_figshare].
 
 
 [autograd]: https://github.com/HIPS/autograd
@@ -29,3 +30,4 @@ the latest [CI run][actions]. You can also click the badges above.
 [mattjj_talk]: http://videolectures.net/deeplearning2017_johnson_automatic_differentiation
 [releases]: https://github.com/hzdr/autodiff101/releases/latest
 [actions]: https://github.com/hzdr/autodiff101/actions
+[talk_figshare]: https://figshare.com/articles/presentation/An_introduction_to_Automatic_Differentiation/14802948
