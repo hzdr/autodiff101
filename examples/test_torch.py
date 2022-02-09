@@ -5,33 +5,27 @@ pytorch has a "functional" grad API [1,2] as of v1.5
 
 in addition to
 
-    # jax.nn and jax.experimental.stax
+    # like jax.nn and jax.experimental.stax
     torch.nn.functional
 
 However, unlike jax, torch.autograd.functional's functions don't return
-functions. Also one has to supply the function to differentiate *and* the
-input.
+functions. One needs to supply the function to differentiate along with the
+input at which grad(func) shall be evaluated.
+
+    # like jax.grad(func)(x)
+    #
+    # default vector v in VJP is v=None -> v=1 -> return grad(func)(x)
+    torch.autograd.functional.vjp(func, x) -> Tensor
 
     torch.autograd.functional.hessian(func, x) -> Tensor
 
 whereas
 
+    jax.grad(func) -> grad_func
+    jax.grad(func)(x) -> grad_func(x) -> DeviceArray
+
     jax.hessian(func) -> hess_func
     jax.hessian(func)(x) -> hess_func(x) -> DeviceArray
-
-
-Note that this torch API pattern is similar to what we find with
-torch.autograd.grad():
-
-    x=torch.rand(3)
-    x.requires_grad_()
-    a=x.sin().sum()
-    torch.autograd.grad(a, x) -> x.grad
-    # same as
-    #   a.backward()
-    #   x.grad
-
-only that here the first argument is a Tensor and not a function.
 
 
 resources
@@ -73,9 +67,22 @@ rand = torch.rand
 ##print(x.grad)
 
 
-#-----------------------------------------------------------------------------
-# poor man's jax-like functional API
-#-----------------------------------------------------------------------------
+func_plain_torch = lambda x: torch.sin(x).pow(2.0).sum()
+
+
+def copy(x, requires_grad=False):
+    _x = x.clone().detach()
+    if not requires_grad:
+        assert not _x.requires_grad
+    else:
+        _x.requires_grad = requires_grad
+    return _x
+
+
+# -----------------------------------------------------------------------------
+# poor man's jax-like API
+# -----------------------------------------------------------------------------
+
 
 def _wrap_input(func):
     def wrapper(_x):
@@ -87,9 +94,11 @@ def _wrap_input(func):
         if x.grad is not None:
             x.grad.zero_()
         return func(x)
+
     return wrapper
 
 
+# only to make scalar args work
 @_wrap_input
 def cos(x):
     return torch.cos(x)
@@ -97,7 +106,7 @@ def cos(x):
 
 @_wrap_input
 def func(x):
-    return torch.sin(x).pow(2.0).sum()
+    return func_plain_torch(x)
 
 
 def grad(func):
@@ -108,29 +117,51 @@ def grad(func):
         # x.grad is a Tensor of x.shape which holds the derivatives of func
         # w.r.t each x[i,j,k,...] evaluated at x, got it?
         return x.grad
+
     return _gradfunc
+
 
 elementwise_grad = grad
 
 
 def test():
+    # Check that grad() works
     assert torch.allclose(grad(torch.sin)(1.234), cos(1.234))
-    x = rand(10)*5 - 5
+    x = rand(10) * 5 - 5
     assert torch.allclose(elementwise_grad(torch.sin)(x), torch.cos(x))
     assert grad(func)(x).shape == x.shape
 
-    # Different grad APIs
+    # Show 4 different pytorch grad APIs
     x1 = rand(3, requires_grad=True)
-    # This is how one copies an array in pytorch
-    x2 = x1.clone().detach()
-    x2.requires_grad = True
-    c1 = func(x1)
-    # same as torch.autograd.backward(c1)
+
+    # 1
+    c1 = func_plain_torch(x1)
     c1.backward()
     g1 = x1.grad
-    c2 = func(x2)
-    g2 = torch.autograd.grad(c2, x2)[0]
-    assert (g1==g2).all()
 
-if __name__ == '__main__':
+    # 2
+    x2 = copy(x1, requires_grad=True)
+    c2 = func_plain_torch(x2)
+    torch.autograd.backward(c2)
+    g2 = x2.grad
+    assert (g1 == g2).all()
+
+    # 3
+    x2 = copy(x1, requires_grad=True)
+    c2 = func_plain_torch(x2)
+    g2 = torch.autograd.grad(c2, x2)[0]
+    assert (g1 == g2).all()
+
+    # 4
+    x2 = copy(x1)
+    g2 = torch.autograd.functional.vjp(func_plain_torch, x2)[1]
+    assert (g1 == g2).all()
+
+    # jax-like functional API defined here
+    x2 = copy(x1)
+    g2 = grad(func)(x2)
+    assert (g1 == g2).all()
+
+
+if __name__ == "__main__":
     test()
