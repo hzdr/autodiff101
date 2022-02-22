@@ -4,8 +4,7 @@ Define custom derivatives via JVPs (forward mode).
 
 The code examples are not useful production code since most derivatives that we
 implement are already the correct default anyway (e.g. jax.grad(jax.numpy.sin)
--> jax.numpy.cos). We use them to learn and to show how the library operates
-inside.
+-> jax.numpy.cos).
 
 When we call
 
@@ -185,13 +184,15 @@ def test():
         pow2.defjvp(p2_jvp)
         mysin.defjvp(s_jvp)
         assert jnp.allclose(
-            [func(xi) for xi in x], [func_with_jvp(xi) for xi in x]
+            jnp.array([func(xi) for xi in x]),
+            jnp.array([func_with_jvp(xi) for xi in x]),
         )
 
         assert jnp.allclose(func(x), func_with_jvp(x))
 
         assert jnp.allclose(
-            [grad(func)(xi) for xi in x], [grad(func_with_jvp)(xi) for xi in x]
+            jnp.array([grad(func)(xi) for xi in x]),
+            jnp.array([grad(func_with_jvp)(xi) for xi in x]),
         )
 
         assert jnp.allclose(
