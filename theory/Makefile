@@ -1,11 +1,10 @@
-# --shell-escape b/c of minted package
-opts="-pdf -pdflatex='pdflatex --shell-escape %O %S'"
+main=main.tex
 
-all: main.tex
-	latexmk "$(opts)" $<
+all: $(main)
+	latexmk $<
 
-preview: main.tex
-	latexmk -pvc "$(opts)" $<
+preview: $(main)
+	latexmk -pvc $<
 
 clean: _restclean
 	latexmk -c
@@ -15,4 +14,4 @@ allclean: _restclean
 
 _restclean:
 	rm -rf _minted-*
-	rm -f *.bak *.bbl *.run.xml *.nav *.snm *.vrb
+	rm -f *.bak *.bbl *.run.xml *.nav *.snm *.vrb *.synctex.*
