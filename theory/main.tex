@@ -1,6 +1,21 @@
-\documentclass[paper=a4,11pt,headsepline]{scrartcl}
+\documentclass[11pt]{scrartcl}
 
-\usepackage[margin=2cm]{geometry}
+\usepackage[automark]{scrlayer-scrpage}
+\pagestyle{scrheadings}
+\clearpairofpagestyles
+\ihead{\headmark}
+\ohead[\pagemark]{\pagemark}
+
+\KOMAoptions{
+    headinclude=true,
+    footinclude=false,
+    BCOR=0pt,
+    DIV=17,
+    twoside=false,
+    headsepline=true,
+    paper=a4,
+    }
+
 \usepackage[fleqn]{amsmath}
 \usepackage{amssymb}
 \usepackage{bm}
