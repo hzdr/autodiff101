@@ -1,16 +1,15 @@
 % vim:tw=150
 
-%%\pdfminorversion=5
 \documentclass[fleqn,10pt]{beamer}
 
+%----------------------------------------------------------------------------------%
+% packages, lit
 %----------------------------------------------------------------------------------%
 
 \usepackage{bm}
 \usepackage{xspace}
 \usepackage{amsmath}
-%%\usepackage{footmisc}
 \usepackage{minted}
-%%\usepackage{cancel}
 \usepackage[
     backend=biber,
     maxbibnames=2,
@@ -22,15 +21,10 @@
     ]{biblatex}
 \addbibresource{lit.bib}
 
-%%\usepackage{fontspec}
-%%\setmonofont{Hack}
 
 %----------------------------------------------------------------------------------%
-
-% doesn't help, we still can't use the minted env inside overlays such as \uncover, muse use \inputminted ... hmpf
-%%\setminted{
-%%    beameroverlays=true,
-%%    }
+% minted
+%----------------------------------------------------------------------------------%
 
 % https://tex.stackexchange.com/a/173854
 %
@@ -58,15 +52,13 @@
 
 
 %----------------------------------------------------------------------------------%
-
-\include{nc}
-
+% beamer style and layout
 %----------------------------------------------------------------------------------%
 
 \defbeamertemplate{footline}{megamega}{%
     \usebeamercolor[fg]{page number in head/foot}%
     \usebeamerfont{page number in head/foot}%
-%%    \hspace{1em}HZDR ML Paper Reading Group \hspace{1em} Steve Schmerler \hspace{1em} FWCC/Helmholtz AI
+%%    \hspace{1em}Important Meeting XY \hspace{1em} My name \hspace{1em} My Department
     \hfill%
     \insertframenumber\,/\,\inserttotalframenumber\kern1em\vskip2pt%
 }
@@ -78,6 +70,16 @@
 
 \usefonttheme{serif}
 
+
+%----------------------------------------------------------------------------------%
+% newcommands
+%----------------------------------------------------------------------------------%
+
+\include{nc}
+
+
+%----------------------------------------------------------------------------------%
+% title & stuff
 %----------------------------------------------------------------------------------%
 
 \title{Autodiff 101}
@@ -267,33 +269,6 @@
     \uncover<3->{
         Right-multiply with one column $\pdi{\ve x}{x_j} = \ve e_j = [0,0,\cdots,1,\cdots, 0]^\top$ selects $j$th column $\ma J[:,j]$
     }
-%%    \uncover<4->{
-%%        \vfill
-%%        $x_j=x_1: \pdi{x_1}{x_1}=1, \pdi{x_2}{x_1}=0$
-%%        {\small
-%%        \begin{equation*}
-%%            \pd{\ve f}{\ve x}\,\pd{\ve x}{x_1}=
-%%            \begin{bmatrix}
-%%                \pd{f_1}{x_1} & \pd{f_1}{x_2} \\
-%%                \pd{f_2}{x_1} & \pd{f_2}{x_2} \\
-%%            \end{bmatrix}
-%%            \begin{bmatrix}
-%%                \pd{x_1}{x_1} \\
-%%                \pd{x_2}{x_1} \\
-%%            \end{bmatrix}
-%%            =
-%%            \begin{bmatrix}
-%%                \pd{f_1}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_1}{x_2}\,\pd{x_2}{x_1}} \\
-%%                \pd{f_2}{x_1}\,\pd{x_1}{x_1} + \cancelto{0}{\pd{f_2}{x_2}\,\pd{x_2}{x_1}} \\
-%%            \end{bmatrix}
-%%            =
-%%            \begin{bmatrix}
-%%                \pd{f_1}{x_1} \\
-%%                \pd{f_2}{x_1} \\
-%%            \end{bmatrix}
-%%        \end{equation*}
-%%        }
-%%    }
 \end{frame}
 
 \begin{frame}
