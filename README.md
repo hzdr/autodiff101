@@ -1,5 +1,6 @@
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/hzdr/autodiff101?label=latest%20release&style=flat-square)][releases]
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/hzdr/autodiff101/Build%20and%20release%20PDF?label=Build%20and%20release%20PDF&style=flat-square)][actions]
+[![DOI](https://zenodo.org/badge/374684114.svg)](https://zenodo.org/badge/latestdoi/374684114)
 
 # An introduction to Automatic Differentiation
 
