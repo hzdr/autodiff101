@@ -68,7 +68,7 @@ def mysin(x):
     much slower than np.sin() :-D
     """
     ##return jnp.sin(x)
-    return x - x ** 3 / 6 + x ** 5 / 120 - x ** 7 / 5040 + x ** 9 / 362880
+    return x - x**3 / 6 + x**5 / 120 - x**7 / 5040 + x**9 / 362880
 
 
 def mycos(x):
@@ -87,12 +87,7 @@ def mycos(x):
     slightly worse. Both grow beyond 1e-8 outside of ~ [-1,1].
     """
     return (
-        1
-        - x ** 2 / 2
-        + x ** 4 / 24
-        - x ** 6 / 720
-        + x ** 8 / 40320
-        - x ** 10 / 3628800
+        1 - x**2 / 2 + x**4 / 24 - x**6 / 720 + x**8 / 40320 - x**10 / 3628800
     )
 
 

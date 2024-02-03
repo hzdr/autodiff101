@@ -23,7 +23,7 @@ def pow2(x):
 
 def pow2_vjp(ans, x):
     # correct for x scalar or (n,), use this in production code
-    return lambda v: v * 2*x
+    return lambda v: v * 2 * x
 
 
 def pow2_vjp_with_jac(ans, x):
@@ -32,10 +32,10 @@ def pow2_vjp_with_jac(ans, x):
     """
     # jacobian() works for scalar and 1d array input, diag() doesn't
     if x.shape == ():
-        return lambda v: v * 2*x
+        return lambda v: v * 2 * x
     else:
         ##jac = jacobian(lambda x: anp.power(x,2))(x)
-        jac = anp.diag(2*x)
+        jac = anp.diag(2 * x)
         return lambda v: anp.dot(v, jac)
 
 
@@ -67,7 +67,7 @@ def mysum_vjp(ans, x):
 
 
 def func(x):
-    return anp.sum(anp.power(anp.sin(x),2))
+    return anp.sum(anp.power(anp.sin(x), 2))
 
 
 def func_with_vjp(x):
@@ -79,7 +79,7 @@ def test():
     # df/dx : R -> R
     assert anp.allclose(grad(anp.sin)(1.234), anp.cos(1.234))
 
-    x = rand(10)*5 - 5
+    x = rand(10) * 5 - 5
     assert anp.allclose(jacobian(anp.sin)(x), anp.diag(anp.cos(x)))
 
     # elementwise_grad(f) : R^n -> R^n (of f: R^n -> R^n), returns the column sum of
@@ -87,27 +87,27 @@ def test():
     assert anp.allclose(elementwise_grad(anp.sin)(x), anp.cos(x))
     assert anp.allclose(jacobian(anp.sin)(x).sum(axis=0), anp.cos(x))
 
-
     defvjp(mysin, mysin_vjp)
     defvjp(mysum, mysum_vjp)
     for p2_jvp in [pow2_vjp, pow2_vjp_with_jac]:
         defvjp(pow2, p2_jvp)
 
-        assert anp.allclose([func(xi)          for xi in x],
-                            [func_with_vjp(xi) for xi in x])
+        assert anp.allclose(
+            [func(xi) for xi in x], [func_with_vjp(xi) for xi in x]
+        )
 
-        assert anp.allclose(func(x),
-                            func_with_vjp(x))
+        assert anp.allclose(func(x), func_with_vjp(x))
 
-        assert anp.allclose([grad(func)(xi)          for xi in x],
-                            [grad(func_with_vjp)(xi) for xi in x])
+        assert anp.allclose(
+            [grad(func)(xi) for xi in x], [grad(func_with_vjp)(xi) for xi in x]
+        )
 
-        assert anp.allclose(elementwise_grad(func)(x),
-                            elementwise_grad(func_with_vjp)(x))
+        assert anp.allclose(
+            elementwise_grad(func)(x), elementwise_grad(func_with_vjp)(x)
+        )
 
-        assert anp.allclose(grad(func)(x),
-                            grad(func_with_vjp)(x))
+        assert anp.allclose(grad(func)(x), grad(func_with_vjp)(x))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test()
