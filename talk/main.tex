@@ -392,7 +392,7 @@
     Scripts to generate C++ code (\co{libtorch.so}) and Python bindings.
 \end{frame}
 
-\begin{frame}[fragile]
+\begin{frame}
     \frametitle{Properties of reverse mode AD}
     Apply all $\ve e_i$ \ra build $\ma J$ \emph{one row at a time}.
     Efficient for "wide" $\ma J$ with $m\ll n$, best: one single reverse pass for $f(\ve x): \mathbb R^n \ra \mathbb R$ ($m=1$, first row)
@@ -406,7 +406,6 @@
     }
 \end{frame}
 
-%%\begin{frame}[fragile]
 \begin{frame}
     \frametitle{\pytorch: Reverse mode example}
     \begin{equation*}
@@ -444,7 +443,7 @@
     }
 \end{frame}
 
-\begin{frame}[fragile]
+\begin{frame}
     \frametitle{Higher order fun}
     \mintedfromfile{python}{code/higher_order_1.py}
     \vspace{-0.3cm}
