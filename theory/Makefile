@@ -12,6 +12,7 @@ clean: _restclean
 allclean: _restclean
 	latexmk -C
 
+# Seems like latexmk's "push @generated_exts" doesn't treat directories.
 _restclean:
 	rm -rf _minted-*
-	rm -f *.bak *.bbl *.run.xml *.nav *.snm *.vrb *.synctex.* *.listing *-SAVE-ERROR
+	rm -f *-SAVE-ERROR
