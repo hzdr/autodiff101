@@ -1,4 +1,4 @@
-# https://github.com/google/jax/blob/master/jax/_src/lax/lax.py
+# github.com/google/jax/blob/main/jax/_src/lax/lax.py
 
 def sin(x: Array) -> Array:
   r"""Elementwise sine: :math:`\mathrm{sin}(x)`."""
