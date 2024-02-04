@@ -1,39 +1,17 @@
-# While this action's image (https://github.com/xu-cheng/texlive-action,
-# ghcr.io/xu-cheng/texlive-full:latest) is "only" 2 GiB, as opposed to
-# texlive/texlive with a whopping 4 GiB (!!), it already fails when "apk add
-# make". Also using the image as is instead of the "action" (which just
-# shell-execs the string below "run" :)) fails when pulling it from ghcr.io. So
-# 4 GiB it is, then.
-
-##jobs:
-##  pdf:
-##    runs-on: ubuntu-latest
-##
-##    steps:
-##      - name: checkout
-##        uses: actions/checkout@v2
-##
-##      - name: build
-##        uses: xu-cheng/texlive-action/full@master
-##        with:
-##          run: |
-##            apk update && apk add make && sh .github/scripts/build_pdf.sh built_pdfs
-
-
 name: Build and release PDF
 
 on: push
 
 jobs:
   pdf:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     container:
       image: texlive/texlive
 
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: build
         run: |
