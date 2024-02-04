@@ -14,4 +14,4 @@ allclean: _restclean
 
 _restclean:
 	rm -rf _minted-*
-	rm -f *.bak *.bbl *.run.xml *.nav *.snm *.vrb *.synctex.*
+	rm -f *.bak *.bbl *.run.xml *.nav *.snm *.vrb *.synctex.* *.listing *-SAVE-ERROR
