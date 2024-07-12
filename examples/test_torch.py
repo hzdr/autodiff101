@@ -27,6 +27,10 @@ whereas
     jax.hessian(func) -> hess_func
     jax.hessian(func)(x) -> hess_func(x) -> DeviceArray
 
+As of torch 2.0, there is torch.func (formerly functorch) which implements a
+subset of the jax API (e.g. torch.func.grad() behaves like jax.grad()). There
+is also support for using the torch.func API with custom derivatives, using
+torch.autograd.Function [3] (not part of this example so far).
 
 resources
     https://pytorch.org/tutorials/beginner/pytorch_with_examples.html#autograd
@@ -37,9 +41,11 @@ resources
 
 [1] https://github.com/pytorch/pytorch/commit/1f4a4aaf643b70ebcb40f388ae5226a41ca57d9b
 [2] https://pytorch.org/docs/stable/autograd.html#functional-higher-level-api
+[3] https://pytorch.org/docs/stable/notes/extending.func.html
 """
 
 import torch
+from torch.func import grad, vmap
 import numpy as np
 
 rand = torch.rand
@@ -70,21 +76,11 @@ rand = torch.rand
 func_plain_torch = lambda x: torch.sin(x).pow(2.0).sum()
 
 
-def copy(x, requires_grad=False):
-    _x = x.clone().detach()
-    if not requires_grad:
-        assert not _x.requires_grad
-    else:
-        _x.requires_grad = requires_grad
-    return _x
-
-
-# -----------------------------------------------------------------------------
-# poor man's jax-like API
-# -----------------------------------------------------------------------------
-
-
 def _wrap_input(func):
+    """
+    Helper for mygrad
+    """
+
     def wrapper(_x):
         if isinstance(_x, torch.Tensor):
             x = _x
@@ -98,18 +94,11 @@ def _wrap_input(func):
     return wrapper
 
 
-# only to make scalar args work
-@_wrap_input
-def cos(x):
-    return torch.cos(x)
+def mygrad(func):
+    """
+    poor man's jax-like API, for torch < 2.0
+    """
 
-
-@_wrap_input
-def func(x):
-    return func_plain_torch(x)
-
-
-def grad(func):
     @_wrap_input
     def _gradfunc(x):
         out = func(x)
@@ -121,17 +110,51 @@ def grad(func):
     return _gradfunc
 
 
-elementwise_grad = grad
+elementwise_mygrad = mygrad
+
+
+def elementwise_grad(func):
+    return vmap(grad(func))
+
+
+# Use _wrap_input here only to make scalar args work
+@_wrap_input
+def cos(x):
+    return torch.cos(x)
+
+
+# Use _wrap_input here only to make scalar args work
+@_wrap_input
+def func(x):
+    return func_plain_torch(x)
+
+
+def copy(x, requires_grad=False):
+    _x = x.clone().detach()
+    if not requires_grad:
+        assert not _x.requires_grad
+    else:
+        _x.requires_grad = requires_grad
+    return _x
 
 
 def test():
-    # Check that grad() works
-    assert torch.allclose(grad(torch.sin)(1.234), cos(1.234))
+    # Check that mygrad() works
+    assert torch.allclose(mygrad(torch.sin)(1.234), cos(1.234))
     x = rand(10) * 5 - 5
-    assert torch.allclose(elementwise_grad(torch.sin)(x), torch.cos(x))
-    assert grad(func)(x).shape == x.shape
+    assert torch.allclose(elementwise_mygrad(torch.sin)(x), torch.cos(x))
+    assert mygrad(func)(x).shape == x.shape
 
-    # Show 4 different pytorch grad APIs
+    # torch.func.grad()
+    #
+    # Float input needs to be a tensor.
+    ##assert torch.allclose(grad(torch.sin)(1.234), cos(1.234))
+    assert torch.allclose(grad(torch.sin)(torch.tensor(1.234)), cos(1.234))
+
+    assert torch.allclose(elementwise_grad(torch.sin)(x), torch.cos(x))
+    assert grad(func_plain_torch)(x).shape == x.shape
+
+    # Show 5 different pytorch grad APIs
     x1 = rand(3, requires_grad=True)
 
     # 1
@@ -157,9 +180,15 @@ def test():
     g2 = torch.autograd.functional.vjp(func_plain_torch, x2)[1]
     assert (g1 == g2).all()
 
-    # jax-like functional API defined here
+    # 5
+    # Limited lax-like support in torch 2.x
     x2 = copy(x1)
-    g2 = grad(func)(x2)
+    g2 = torch.func.grad(func_plain_torch)(x2)
+    assert (g1 == g2).all()
+
+    # jax-like functional API defined here for torch < 2.0
+    x2 = copy(x1)
+    g2 = mygrad(func)(x2)
     assert (g1 == g2).all()
 
 
